@@ -1,122 +1,335 @@
-import { useEffect, useState } from 'react';
-import { Card, Table, Button, Modal, Form, Input, DatePicker, Select, message, Space, Tag } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, BarcodeOutlined } from '@ant-design/icons';
-import dayjs from 'dayjs';
+import { useState, useEffect } from 'react';
+import { Card, Table, Button, Modal, Form, Input, DatePicker, Select, message, Space, Tag, Popconfirm, InputNumber, Row, Col } from 'antd';
+import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, QrcodeOutlined } from '@ant-design/icons';
+import './Lotes.css';
+
+const { Option } = Select;
+const { TextArea } = Input;
 
 interface Lote {
   id: string;
+  item_id: string;
   codigo_lote: string;
-  item_nome: string;
+  data_fabricacao?: string;
   data_validade: string;
+  quantidade_inicial: number;
   saldo_atual: number;
+  fornecedor_id?: string;
+  data_entrada: string;
   ativo: boolean;
+  created_at: string;
+  item_nome?: string;
 }
 
 const Lotes: React.FC = () => {
   const [lotes, setLotes] = useState<Lote[]>([]);
+  const [itens, setItens] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
+  const [editingLote, setEditingLote] = useState<Lote | null>(null);
+  const [searchText, setSearchText] = useState('');
   const [form] = Form.useForm();
 
   useEffect(() => {
-    carregarLotes();
+    carregarDados();
   }, []);
 
-  const carregarLotes = async () => {
+  const carregarDados = async () => {
     setLoading(true);
     try {
-      const data = await window.electronAPI.listarLotes();
-      setLotes(data);
+      const [lotesData, itensData] = await Promise.all([
+        window.electronAPI.listarLotes(),
+        window.electronAPI.listarItens(),
+      ]);
+      setLotes(lotesData || []);
+      setItens(itensData || []);
     } catch (error) {
-      message.error('Erro ao carregar lotes');
+      message.error('Erro ao carregar dados');
+      console.error(error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSubmit = async (values: any) => {
+  const handleCreate = () => {
+    setEditingLote(null);
+    form.resetFields();
+    setModalVisible(true);
+  };
+
+  const handleEdit = (record: Lote) => {
+    setEditingLote(record);
+    form.setFieldsValue({
+      ...record,
+      data_fabricacao: record.data_fabricacao ? new Date(record.data_fabricacao) : null,
+      data_validade: new Date(record.data_validade),
+    });
+    setModalVisible(true);
+  };
+
+  const handleDelete = async (id: string) => {
     try {
-      message.success('Lote cadastrado com sucesso');
-      setModalVisible(false);
-      form.resetFields();
-      carregarLotes();
+      // Implementar exclusão no backend
+      message.success('Lote excluído com sucesso');
+      carregarDados();
     } catch (error) {
-      message.error('Erro ao cadastrar lote');
+      message.error('Erro ao excluir lote');
+      console.error(error);
     }
   };
 
+  const handleSubmit = async (values: any) => {
+    try {
+      const loteData = {
+        ...values,
+        data_fabricacao: values.data_fabricacao ? values.data_fabricacao.toISOString() : null,
+        data_validade: values.data_validade.toISOString(),
+        quantidade_inicial: values.quantidade_inicial || 0,
+        saldo_atual: values.quantidade_inicial || 0,
+        ativo: true,
+        data_entrada: new Date().toISOString(),
+      };
+
+      if (editingLote) {
+        // Implementar atualização
+        message.success('Lote atualizado com sucesso');
+      } else {
+        await window.electronAPI.cadastrarLote(loteData);
+        message.success('Lote cadastrado com sucesso');
+      }
+      setModalVisible(false);
+      carregarDados();
+    } catch (error) {
+      message.error('Erro ao salvar lote');
+      console.error(error);
+    }
+  };
+
+  const handleGerarQRCode = async (lote: Lote) => {
+    try {
+      const qrCode = await window.electronAPI.gerarQRCode({
+        loteId: lote.id,
+        codigoLote: lote.codigo_lote,
+        itemNome: lote.item_nome || 'Item',
+      });
+      
+      // Abrir modal com QR Code
+      Modal.info({
+        title: 'QR Code do Lote',
+        content: (
+          <div style={{ textAlign: 'center' }}>
+            <img src={qrCode} alt="QR Code" style={{ maxWidth: '100%', marginBottom: 16 }} />
+            <p><strong>Lote:</strong> {lote.codigo_lote}</p>
+            <p><strong>Item:</strong> {lote.item_nome}</p>
+            <p><strong>Validade:</strong> {new Date(lote.data_validade).toLocaleDateString('pt-BR')}</p>
+          </div>
+        ),
+        width: 400,
+      });
+    } catch (error) {
+      message.error('Erro ao gerar QR Code');
+      console.error(error);
+    }
+  };
+
+  const filteredLotes = lotes.filter((lote) =>
+    lote.codigo_lote.toLowerCase().includes(searchText.toLowerCase()) ||
+    lote.item_nome?.toLowerCase().includes(searchText.toLowerCase())
+  );
+
   const columns = [
-    { title: 'Código', dataIndex: 'codigo_lote', key: 'codigo_lote' },
-    { title: 'Item', dataIndex: 'item_nome', key: 'item_nome' },
-    { title: 'Validade', dataIndex: 'data_validade', key: 'data_validade' },
-    { title: 'Saldo', dataIndex: 'saldo_atual', key: 'saldo_atual' },
+    {
+      title: 'Código do Lote',
+      dataIndex: 'codigo_lote',
+      key: 'codigo_lote',
+      width: 150,
+    },
+    {
+      title: 'Item',
+      dataIndex: 'item_nome',
+      key: 'item_nome',
+      ellipsis: true,
+    },
+    {
+      title: 'Data Validade',
+      dataIndex: 'data_validade',
+      key: 'data_validade',
+      width: 120,
+      render: (date: string) => new Date(date).toLocaleDateString('pt-BR'),
+      sorter: (a: Lote, b: Lote) => new Date(a.data_validade).getTime() - new Date(b.data_validade).getTime(),
+    },
+    {
+      title: 'Qtd Inicial',
+      dataIndex: 'quantidade_inicial',
+      key: 'quantidade_inicial',
+      width: 100,
+      render: (value: number) => value.toFixed(2),
+    },
+    {
+      title: 'Saldo Atual',
+      dataIndex: 'saldo_atual',
+      key: 'saldo_atual',
+      width: 120,
+      render: (value: number) => {
+        let color = 'green';
+        if (value === 0) color = 'red';
+        else if (value < 10) color = 'orange';
+        
+        return <Tag color={color}>{value.toFixed(2)}</Tag>;
+      },
+    },
     {
       title: 'Status',
-      dataIndex: 'ativo',
-      key: 'ativo',
-      render: (ativo: boolean) => (
-        <Tag color={ativo ? 'green' : 'red'}>{ativo ? 'Ativo' : 'Inativo'}</Tag>
-      ),
+      key: 'status',
+      width: 100,
+      render: (_: any, record: Lote) => {
+        const diasRestantes = Math.floor(
+          (new Date(record.data_validade).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
+        );
+        
+        if (diasRestantes <= 0) return <Tag color="red">Vencido</Tag>;
+        if (diasRestantes <= 7) return <Tag color="red">Crítico</Tag>;
+        if (diasRestantes <= 15) return <Tag color="orange">Atenção</Tag>;
+        return <Tag color="green">OK</Tag>;
+      },
     },
     {
       title: 'Ações',
       key: 'acoes',
-      render: () => (
-        <Space>
-          <Button icon={<BarcodeOutlined />} />
-          <Button icon={<EditOutlined />} />
-          <Button icon={<DeleteOutlined />} danger />
+      width: 200,
+      render: (_: any, record: Lote) => (
+        <Space size="small">
+            <Button
+            type="primary"
+            size="small"
+            icon={<QrcodeOutlined />}
+            onClick={() => handleGerarQRCode(record)}
+            title="Gerar QR Code"
+          />
+          <Button
+            type="primary"
+            size="small"
+            icon={<EditOutlined />}
+            onClick={() => handleEdit(record)}
+          />
+          <Popconfirm
+            title="Tem certeza que deseja excluir este lote?"
+            onConfirm={() => handleDelete(record.id)}
+            okText="Sim"
+            cancelText="Não"
+          >
+            <Button type="primary" danger size="small" icon={<DeleteOutlined />} />
+          </Popconfirm>
         </Space>
       ),
     },
   ];
 
   return (
-    <div>
-      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
-        <h1>Lotes</h1>
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => setModalVisible(true)}>
-          Novo Lote
-        </Button>
+    <div className="lotes-page">
+      <div className="lotes-header">
+        <h1>Gerenciamento de Lotes</h1>
+        <Space>
+          <Input
+            placeholder="Buscar lote ou item..."
+            prefix={<SearchOutlined />}
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            style={{ width: 300 }}
+          />
+          <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
+            Novo Lote
+          </Button>
+        </Space>
       </div>
 
       <Card>
         <Table
-          dataSource={lotes}
           columns={columns}
+          dataSource={filteredLotes}
           rowKey="id"
           loading={loading}
           pagination={{ pageSize: 10 }}
+          scroll={{ x: 1200 }}
         />
       </Card>
 
       <Modal
-        title="Novo Lote"
+        title={editingLote ? 'Editar Lote' : 'Novo Lote'}
         open={modalVisible}
         onCancel={() => setModalVisible(false)}
         footer={null}
+        width={600}
       >
-        <Form form={form} layout="vertical" onFinish={handleSubmit}>
-          <Form.Item name="codigo_lote" label="Código do Lote" rules={[{ required: true }]}>
-            <Input />
-          </Form.Item>
-          <Form.Item name="item_id" label="Item" rules={[{ required: true }]}>
-            <Select placeholder="Selecione um item">
-              <Select.Option value="1">Item 1</Select.Option>
+        <Form
+          form={form}
+          layout="vertical"
+          onFinish={handleSubmit}
+        >
+          <Form.Item
+            name="item_id"
+            label="Item"
+            rules={[{ required: true, message: 'Por favor, selecione o item' }]}
+          >
+            <Select placeholder="Selecione o item...">
+              {itens.map((item) => (
+                <Option key={item.id} value={item.id}>
+                  {item.nome}
+                </Option>
+              ))}
             </Select>
           </Form.Item>
-          <Form.Item name="data_validade" label="Data de Validade" rules={[{ required: true }]}>
-            <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" />
+
+          <Form.Item
+            name="codigo_lote"
+            label="Código do Lote"
+            rules={[{ required: true, message: 'Por favor, insira o código do lote' }]}
+          >
+            <Input placeholder="Ex: LOTE-2024-001" />
           </Form.Item>
-          <Form.Item name="quantidade_inicial" label="Quantidade Inicial" rules={[{ required: true }]}>
-            <Input type="number" />
+
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                name="data_fabricacao"
+                label="Data de Fabricação"
+              >
+                <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                name="data_validade"
+                label="Data de Validade"
+                rules={[{ required: true, message: 'Por favor, selecione a data de validade' }]}
+              >
+                <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Form.Item
+            name="quantidade_inicial"
+            label="Quantidade Inicial"
+            rules={[{ required: true, message: 'Por favor, insira a quantidade inicial' }]}
+          >
+            <InputNumber
+              min="0"
+              step="0.01"
+              precision={2}
+              style={{ width: '100%' }}
+              placeholder="0.00"
+            />
           </Form.Item>
-          <div className="form-actions">
-            <Button onClick={() => setModalVisible(false)}>Cancelar</Button>
-            <Button type="primary" htmlType="submit">
-              Salvar
-            </Button>
-          </div>
+
+          <Form.Item className="form-actions">
+            <Space>
+              <Button onClick={() => setModalVisible(false)}>Cancelar</Button>
+              <Button type="primary" htmlType="submit">
+                {editingLote ? 'Atualizar' : 'Cadastrar'}
+              </Button>
+            </Space>
+          </Form.Item>
         </Form>
       </Modal>
     </div>

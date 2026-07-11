@@ -1,26 +1,18 @@
-import { useEffect, useState } from 'react';
-import { Card, Row, Col, Statistic, Alert, List, Tag } from 'antd';
+import { useState, useEffect } from 'react';
+import { Card, Row, Col, Statistic, Alert, Table, Tag, Progress } from 'antd';
 import {
-  ShoppingOutlined,
+  AlertOutlined,
+  InboxOutlined,
   ExclamationCircleOutlined,
   CheckCircleOutlined,
-  WarningOutlined,
+  ClockCircleOutlined,
 } from '@ant-design/icons';
-
-interface DashboardData {
-  totalItens: number;
-  totalLotes: number;
-  alertasValidade: any[];
-  estoqueBaixo: any[];
-}
+import './Dashboard.css';
 
 const Dashboard: React.FC = () => {
-  const [data, setData] = useState<DashboardData>({
-    totalItens: 0,
-    totalLotes: 0,
-    alertasValidade: [],
-    estoqueBaixo: [],
-  });
+  const [alertas, setAlertas] = useState<any[]>([]);
+  const [itens, setItens] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     carregarDados();
@@ -28,56 +20,89 @@ const Dashboard: React.FC = () => {
 
   const carregarDados = async () => {
     try {
-      const [itens, lotes, alertas] = await Promise.all([
-        window.electronAPI.listarItens(),
-        window.electronAPI.listarLotes(),
-        window.electronAPI.obterAlertasValidade(),
-      ]);
+      // Carregar alertas de validade
+      const alertasData = await window.electronAPI.obterAlertasValidade();
+      setAlertas(alertasData || []);
 
-      setData({
-        totalItens: itens.length,
-        totalLotes: lotes.length,
-        alertasValidade: alertas.slice(0, 5),
-        estoqueBaixo: [],
-      });
+      // Carregar itens
+      const itensData = await window.electronAPI.listarItens();
+      setItens(itensData || []);
     } catch (error) {
-      console.error('Erro ao carregar dashboard:', error);
+      console.error('Erro ao carregar dados:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const getUrgenciaColor = (urgencia: string) => {
-    switch (urgencia) {
-      case 'critica':
-        return 'red';
-      case 'alta':
-        return 'orange';
-      case 'media':
-        return 'yellow';
-      default:
-        return 'blue';
-    }
-  };
+  const itensVencidos = alertas.filter((a) => a.dias_para_vencer <= 0).length;
+  const itensProximosVencimento = alertas.filter((a) => a.dias_para_vencer > 0 && a.dias_para_vencer <= 7).length;
+  const totalItens = itens.length;
+  const totalLotes = alertas.length;
+
+  const columns = [
+    {
+      title: 'Item',
+      dataIndex: 'item_nome',
+      key: 'item_nome',
+    },
+    {
+      title: 'Lote',
+      dataIndex: 'codigo_lote',
+      key: 'codigo_lote',
+    },
+    {
+      title: 'Validade',
+      dataIndex: 'data_validade',
+      key: 'data_validade',
+      render: (date: string) => new Date(date).toLocaleDateString('pt-BR'),
+    },
+    {
+      title: 'Dias Restantes',
+      dataIndex: 'dias_para_vencer',
+      key: 'dias_para_vencer',
+      render: (dias: number) => {
+        let color = 'green';
+        if (dias <= 0) color = 'red';
+        else if (dias <= 7) color = 'red';
+        else if (dias <= 15) color = 'orange';
+        else if (dias <= 30) color = 'yellow';
+
+        return (
+          <Tag color={color}>
+            {dias <= 0 ? 'VENCIDO' : `${dias} dias`}
+          </Tag>
+        );
+      },
+    },
+    {
+      title: 'Saldo',
+      dataIndex: 'saldo_atual',
+      key: 'saldo_atual',
+      render: (saldo: number) => saldo.toFixed(2),
+    },
+  ];
 
   return (
-    <div>
+    <div className="dashboard">
       <h1 style={{ marginBottom: 24 }}>Dashboard</h1>
 
+      {/* Estatísticas */}
       <Row gutter={16} style={{ marginBottom: 24 }}>
         <Col span={6}>
           <Card>
             <Statistic
               title="Total de Itens"
-              value={data.totalItens}
-              prefix={<ShoppingOutlined />}
-              valueStyle={{ color: '#1a3a5c' }}
+              value={totalItens}
+              prefix={<InboxOutlined />}
+              valueStyle={{ color: '#1890ff' }}
             />
           </Card>
         </Col>
         <Col span={6}>
           <Card>
             <Statistic
-              title="Total de Lotes"
-              value={data.totalLotes}
+              title="Lotes Ativos"
+              value={totalLotes}
               prefix={<CheckCircleOutlined />}
               valueStyle={{ color: '#52c41a' }}
             />
@@ -86,65 +111,60 @@ const Dashboard: React.FC = () => {
         <Col span={6}>
           <Card>
             <Statistic
-              title="Alertas de Validade"
-              value={data.alertasValidade.length}
+              title="Vencidos"
+              value={itensVencidos}
               prefix={<ExclamationCircleOutlined />}
-              valueStyle={{ color: '#faad14' }}
+              valueStyle={{ color: '#ff4d4f' }}
             />
           </Card>
         </Col>
         <Col span={6}>
           <Card>
             <Statistic
-              title="Estoque Baixo"
-              value={data.estoqueBaixo.length}
-              prefix={<WarningOutlined />}
-              valueStyle={{ color: '#ff4d4f' }}
+              title="Próximos do Vencimento (7 dias)"
+              value={itensProximosVencimento}
+              prefix={<ClockCircleOutlined />}
+              valueStyle={{ color: '#faad14' }}
             />
           </Card>
         </Col>
       </Row>
 
-      {data.alertasValidade.length > 0 && (
-        <Card title="Alertas de Validade" style={{ marginBottom: 24 }}>
-          <List
-            itemLayout="horizontal"
-            dataSource={data.alertasValidade}
-            renderItem={(item: any) => (
-              <List.Item>
-                <List.Item.Meta
-                  title={
-                    <span>
-                      {item.item_nome} - Lote: {item.codigo_lote}
-                      <Tag color={getUrgenciaColor(item.urgencia)} style={{ marginLeft: 8 }}>
-                        {item.urgencia.toUpperCase()}
-                      </Tag>
-                    </span>
-                  }
-                  description={
-                    <span>
-                      Vencimento: {new Date(item.data_validade).toLocaleDateString('pt-BR')} -{' '}
-                      {item.dias_para_vencer <= 0
-                        ? `Vencido há ${Math.abs(item.dias_para_vencer)} dias`
-                        : `Vence em ${item.dias_para_vencer} dias`}{' '}
-                      - Saldo: {item.saldo_atual}
-                    </span>
-                  }
-                />
-              </List.Item>
-            )}
+      {/* Alertas de Validade */}
+      <Card title="Alertas de Validade" style={{ marginBottom: 24 }}>
+        {alertas.length === 0 ? (
+          <Alert message="Nenhum alerta de validade no momento" type="success" showIcon />
+        ) : (
+          <Table
+            columns={columns}
+            dataSource={alertas}
+            rowKey="lote_id"
+            loading={loading}
+            pagination={{ pageSize: 10 }}
+            size="small"
           />
-        </Card>
-      )}
+        )}
+      </Card>
 
-      {data.alertasValidade.length === 0 && (
-        <Alert
-          message="Nenhum alerta de validade no momento"
-          type="success"
-          showIcon
-          style={{ marginBottom: 24 }}
-        />
-      )}
+      {/* Ações Rápidas */}
+      <Row gutter={16}>
+        <Col span={12}>
+          <Card title="Ações Rápidas" size="small">
+            <p>• Cadastrar novo item</p>
+            <p>• Registrar entrada de estoque</p>
+            <p>• Gerar etiqueta QR Code</p>
+            <p>• Realizar inventário</p>
+          </Card>
+        </Col>
+        <Col span={12}>
+          <Card title="Resumo do Sistema" size="small">
+            <p>• Banco de dados: SQLite local</p>
+            <p>• Modo: 100% offline</p>
+            <p>• Versão: 1.0.0</p>
+            <p>• Última atualização: {new Date().toLocaleDateString('pt-BR')}</p>
+          </Card>
+        </Col>
+      </Row>
     </div>
   );
 };

@@ -25,7 +25,7 @@ function createWindow() {
     } as any,
     icon: path.join(__dirname, '../renderer/assets/icon.png'),
     show: false,
-    titleBarStyle: 'hidden-inset',
+    titleBarStyle: 'hiddenInset',
   });
 
   // In development, load from Vite dev server
