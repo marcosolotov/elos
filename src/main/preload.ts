@@ -23,6 +23,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // @ts-ignore
   consultarLote: (id: string) => (ipcRenderer as any).invoke('lote:consultar', id),
   // @ts-ignore
+  atualizarLote: (id: string, dados: any) => (ipcRenderer as any).invoke('lote:atualizar', id, dados),
+  // @ts-ignore
+  excluirLote: (id: string) => (ipcRenderer as any).invoke('lote:excluir', id),
+  // @ts-ignore
   obterHistoricoLote: (id: string) => (ipcRenderer as any).invoke('lote:historico', id),
 
   // Movimentação operations
@@ -35,13 +39,23 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Validade operations
   // @ts-ignore
-  obterAlertasValidade: () => (ipcRenderer as any).invoke('validade:alertas'),
+  obterAlertasValidade: (dias?: number) => (ipcRenderer as any).invoke('validade:alertas', dias),
 
   // Inventário operations
   // @ts-ignore
   abrirInventario: (inv: any) => (ipcRenderer as any).invoke('inventario:abrir', inv),
   // @ts-ignore
   finalizarInventario: (id: string) => (ipcRenderer as any).invoke('inventario:finalizar', id),
+  // @ts-ignore
+  listarInventarios: () => (ipcRenderer as any).invoke('inventario:listar'),
+  // @ts-ignore
+  listarItensInventario: (inventarioId: string) => (ipcRenderer as any).invoke('inventario:listarItens', inventarioId),
+  // @ts-ignore
+  salvarContagem: (contagem: any) => (ipcRenderer as any).invoke('inventario:salvarContagem', contagem),
+  // @ts-ignore
+  registrarPerda: (loteId: string, quantidade: number, motivo: string) => (ipcRenderer as any).invoke('perda:registrar', loteId, quantidade, motivo),
+  // @ts-ignore
+  listarSaidas: () => (ipcRenderer as any).invoke('saida:listar'),
 
   // Relatório operations
   // @ts-ignore
@@ -73,13 +87,20 @@ declare global {
       listarLotes: () => Promise<any[]>;
       cadastrarLote: (lote: any) => Promise<any>;
       consultarLote: (id: string) => Promise<any>;
+      atualizarLote: (id: string, dados: any) => Promise<void>;
+      excluirLote: (id: string) => Promise<void>;
       obterHistoricoLote: (id: string) => Promise<any[]>;
       registrarEntrada: (mov: any) => Promise<any>;
       registrarSaida: (mov: any) => Promise<any>;
       listarMovimentacoesPorLote: (loteId: string) => Promise<any[]>;
-      obterAlertasValidade: () => Promise<any[]>;
+      obterAlertasValidade: (dias?: number) => Promise<any[]>;
       abrirInventario: (inv: any) => Promise<any>;
       finalizarInventario: (id: string) => Promise<void>;
+      listarInventarios: () => Promise<any[]>;
+      listarItensInventario: (inventarioId: string) => Promise<any[]>;
+      salvarContagem: (contagem: any) => Promise<void>;
+      registrarPerda: (loteId: string, quantidade: number, motivo: string) => Promise<void>;
+      listarSaidas: () => Promise<any[]>;
       gerarRelatorioPosicaoEstoque: () => Promise<any[]>;
       gerarRelatorioIndicadores: (inicio: string, fim: string) => Promise<any>;
       gerarQRCode: (dados: any) => Promise<string>;

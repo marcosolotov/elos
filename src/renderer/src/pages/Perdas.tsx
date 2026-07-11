@@ -51,7 +51,7 @@ const Perdas: React.FC = () => {
 
   const handleSubmit = async (values: any) => {
     try {
-      // Implementar cadastro no backend
+      await window.electronAPI.registrarPerda(values.lote_id, values.quantidade, values.motivo);
       message.success('Perda registrada com sucesso');
       setModalVisible(false);
       form.resetFields();

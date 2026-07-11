@@ -53,6 +53,21 @@ export class LoteRepository {
     stmt.run(novoSaldo, id);
   }
 
+  atualizar(id: string, dados: Partial<Lote>): void {
+    const campos = Object.keys(dados).filter(k => k !== 'id' && k !== 'created_at');
+    if (campos.length === 0) return;
+    
+    const setClause = campos.map(c => `${c} = ?`).join(', ');
+    const stmt = this.db.prepare(`UPDATE lote SET ${setClause} WHERE id = ?`);
+    const valores = campos.map(c => {
+      const valor = (dados as any)[c];
+      if (valor instanceof Date) return valor.toISOString();
+      if (typeof valor === 'boolean') return valor ? 1 : 0;
+      return valor ?? null;
+    });
+    stmt.run(...valores, id);
+  }
+
   inativar(id: string): void {
     const stmt = this.db.prepare('UPDATE lote SET ativo = 0 WHERE id = ?');
     stmt.run(id);
@@ -64,7 +79,8 @@ export class LoteRepository {
       INSERT INTO movimentacao (id, lote_id, tipo, quantidade, data, usuario_id, motivo, documento_referencia, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
-    stmt.run(mov.id, mov.lote_id, mov.tipo, mov.quantidade, mov.data, 
+    const dataString = mov.data instanceof Date ? mov.data.toISOString() : mov.data;
+    stmt.run(mov.id, mov.lote_id, mov.tipo, mov.quantidade, dataString, 
              mov.usuario_id, mov.motivo || null, mov.documento_referencia || null,
              new Date().toISOString());
   }
@@ -115,13 +131,18 @@ export class LoteRepository {
   }
 
   // QR Code
+  buscarEtiquetaPorLote(loteId: string): EtiquetaQRCode | null {
+    const stmt = this.db.prepare('SELECT * FROM etiqueta_qrcode WHERE lote_id = ?');
+    return (stmt.get(loteId) as EtiquetaQRCode) || null;
+  }
+
   criarEtiquetaQRCode(etiqueta: Omit<EtiquetaQRCode, 'created_at'>): void {
     const stmt = this.db.prepare(`
       INSERT INTO etiqueta_qrcode (id, lote_id, codigo_unico, data_geracao, impresso)
       VALUES (?, ?, ?, ?, ?)
     `);
     stmt.run(etiqueta.id, etiqueta.lote_id, etiqueta.codigo_unico, 
-             etiqueta.data_geracao, etiqueta.impresso ? 1 : 0);
+             etiqueta.data_geracao.toISOString(), etiqueta.impresso ? 1 : 0);
   }
 
   consultarPorQRCode(codigoUnico: string): EtiquetaQRCode | null {

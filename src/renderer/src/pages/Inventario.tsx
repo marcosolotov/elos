@@ -20,9 +20,9 @@ interface ItemInventario {
   inventario_id: string;
   item_id: string;
   quantidade_sistema: number;
-  quantidade_contada: number;
-  divergencia: number;
-  motivo_ajuste?: string;
+  quantidade_contada: number | null;
+  divergencia: number | null;
+  motivo_ajuste?: string | null;
   item_nome?: string;
 }
 
@@ -32,18 +32,21 @@ const Inventario: React.FC = () => {
   const [itens, setItens] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
+  const [contagemModalVisible, setContagemModalVisible] = useState(false);
+  const [itemContagem, setItemContagem] = useState<any>(null);
   const [inventarioSelecionado, setInventarioSelecionado] = useState<Inventario | null>(null);
   const [form] = Form.useForm();
 
   useEffect(() => {
     carregarInventarios();
+    carregarItens();
   }, []);
 
   const carregarInventarios = async () => {
     setLoading(true);
     try {
-      // Carregar lista de inventários (implementar backend)
-      setInventarios([]);
+      const data = await window.electronAPI.listarInventarios();
+      setInventarios(data || []);
     } catch (error) {
       message.error('Erro ao carregar inventários');
       console.error(error);
@@ -52,12 +55,22 @@ const Inventario: React.FC = () => {
     }
   };
 
+  const carregarItens = async () => {
+    try {
+      const data = await window.electronAPI.listarItens();
+      setItens(data || []);
+    } catch (error) {
+      console.error('Erro ao carregar itens:', error);
+    }
+  };
+
   const handleAbrirInventario = async () => {
     try {
+      const adminUserId = 'admin';
       const novoInventario = await window.electronAPI.abrirInventario({
         data_abertura: new Date().toISOString(),
         status: 'aberto',
-        usuario_id: 'usuario_atual',
+        usuario_id: adminUserId,
       });
       message.success('Inventário aberto com sucesso');
       carregarInventarios();
@@ -80,13 +93,91 @@ const Inventario: React.FC = () => {
 
   const handleSelecionarInventario = async (inventario: Inventario) => {
     setInventarioSelecionado(inventario);
-    // Carregar itens do inventário (implementar backend)
-    setItensInventario([]);
+    // Carregar itens do inventário
+    try {
+      const data = await window.electronAPI.listarItensInventario(inventario.id);
+      setItensInventario(data || []);
+    } catch (error) {
+      console.error('Erro ao carregar itens do inventário:', error);
+      setItensInventario([]);
+    }
   };
 
-  const handleRegistrarContagem = () => {
-    // Implementar modal de contagem
-    message.info('Funcionalidade de contagem em desenvolvimento');
+  const handleIniciarContagem = async () => {
+    if (!inventarioSelecionado) return;
+    
+    try {
+      // Criar itens de inventário para todos os itens ativos
+      const lotes = await window.electronAPI.listarLotes();
+      
+      // Agrupar por item
+      const itensMap = new Map();
+      lotes.forEach((lote: any) => {
+        if (!itensMap.has(lote.item_id)) {
+          itensMap.set(lote.item_id, {
+            item_id: lote.item_id,
+            item_nome: lote.item_nome,
+            quantidade_sistema: 0,
+          });
+        }
+        itensMap.get(lote.item_id).quantidade_sistema += lote.saldo_atual;
+      });
+
+      // Criar itens de inventário
+      const itensParaContar = Array.from(itensMap.values()).map((item: any) => ({
+        id: '',
+        inventario_id: inventarioSelecionado.id,
+        item_id: item.item_id,
+        quantidade_sistema: item.quantidade_sistema,
+        quantidade_contada: null,
+        divergencia: null,
+        motivo_ajuste: null,
+        item_nome: item.item_nome,
+      }));
+
+      setItensInventario(itensParaContar);
+      message.success(`${itensParaContar.length} itens carregados para contagem`);
+    } catch (error) {
+      message.error('Erro ao iniciar contagem');
+      console.error(error);
+    }
+  };
+
+  const handleEditarContagem = (item: ItemInventario) => {
+    setItemContagem(item);
+    form.setFieldsValue({
+      quantidade_contada: item.quantidade_contada,
+      motivo_ajuste: item.motivo_ajuste,
+    });
+    setContagemModalVisible(true);
+  };
+
+  const handleSalvarContagem = async (values: any) => {
+    if (!itemContagem || !inventarioSelecionado) return;
+
+    try {
+      const divergencia = values.quantidade_contada - itemContagem.quantidade_sistema;
+      
+      await window.electronAPI.salvarContagem({
+        inventario_id: inventarioSelecionado.id,
+        item_id: itemContagem.item_id,
+        quantidade_contada: values.quantidade_contada,
+        motivo_ajuste: values.motivo_ajuste,
+      });
+
+      // Atualizar lista local
+      setItensInventario(prev => prev.map(item => 
+        item.item_id === itemContagem.item_id 
+          ? { ...item, quantidade_contada: values.quantidade_contada, divergencia, motivo_ajuste: values.motivo_ajuste }
+          : item
+      ));
+
+      message.success('Contagem registrada com sucesso');
+      setContagemModalVisible(false);
+    } catch (error) {
+      message.error('Erro ao salvar contagem');
+      console.error(error);
+    }
   };
 
   const inventarioColumns = [
@@ -135,14 +226,6 @@ const Inventario: React.FC = () => {
               >
                 Finalizar
               </Button>
-              <Popconfirm
-                title="Tem certeza que deseja excluir este inventário?"
-                onConfirm={() => handleFinalizarInventario(record.id)}
-                okText="Sim"
-                cancelText="Não"
-              >
-                <Button type="primary" danger size="small" icon={<DeleteOutlined />} />
-              </Popconfirm>
             </>
           )}
         </Space>
@@ -177,7 +260,7 @@ const Inventario: React.FC = () => {
       key: 'divergencia',
       width: 120,
       render: (value: number) => {
-        if (!value) return '-';
+        if (value === null || value === undefined) return '-';
         const color = value === 0 ? 'green' : value > 0 ? 'orange' : 'red';
         return <Tag color={color}>{value.toFixed(2)}</Tag>;
       },
@@ -187,6 +270,21 @@ const Inventario: React.FC = () => {
       dataIndex: 'motivo_ajuste',
       key: 'motivo_ajuste',
       ellipsis: true,
+    },
+    {
+      title: 'Ações',
+      key: 'acoes',
+      width: 120,
+      render: (_: any, record: ItemInventario) => (
+        <Button
+          type="primary"
+          size="small"
+          icon={<EditOutlined />}
+          onClick={() => handleEditarContagem(record)}
+        >
+          Contar
+        </Button>
+      ),
     },
   ];
 
@@ -223,8 +321,8 @@ const Inventario: React.FC = () => {
           title={`Itens do Inventário - ${new Date(inventarioSelecionado.data_abertura).toLocaleDateString('pt-BR')}`}
           extra={
             <Space>
-              <Button type="primary" onClick={handleRegistrarContagem}>
-                Registrar Contagem
+              <Button type="primary" onClick={handleIniciarContagem}>
+                Iniciar Contagem
               </Button>
             </Space>
           }
@@ -232,7 +330,7 @@ const Inventario: React.FC = () => {
           {itensInventario.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '40px' }}>
               <p>Nenhum item contado ainda</p>
-              <Button type="primary" onClick={handleRegistrarContagem}>
+              <Button type="primary" onClick={handleIniciarContagem}>
                 Iniciar Contagem
               </Button>
             </div>
@@ -240,12 +338,56 @@ const Inventario: React.FC = () => {
             <Table
               columns={itensInventarioColumns}
               dataSource={itensInventario}
-              rowKey="id"
+              rowKey="item_id"
               pagination={{ pageSize: 10 }}
             />
           )}
         </Card>
       )}
+
+      {/* Modal de Contagem */}
+      <Modal
+        title={`Contagem: ${itemContagem?.item_nome || ''}`}
+        open={contagemModalVisible}
+        onCancel={() => setContagemModalVisible(false)}
+        footer={null}
+      >
+        <Form
+          form={form}
+          layout="vertical"
+          onFinish={handleSalvarContagem}
+        >
+          <Form.Item
+            name="quantidade_contada"
+            label="Quantidade Contada"
+            rules={[{ required: true, message: 'Informe a quantidade contada' }]}
+          >
+            <InputNumber
+              min="0"
+              step="0.01"
+              precision={2}
+              style={{ width: '100%' }}
+              placeholder="0.00"
+            />
+          </Form.Item>
+
+          <Form.Item
+            name="motivo_ajuste"
+            label="Motivo do Ajuste (se houver divergência)"
+          >
+            <TextArea rows={3} placeholder="Descreva o motivo da divergência..." />
+          </Form.Item>
+
+          <Form.Item>
+            <Space>
+              <Button onClick={() => setContagemModalVisible(false)}>Cancelar</Button>
+              <Button type="primary" htmlType="submit">
+                Salvar Contagem
+              </Button>
+            </Space>
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   );
 };

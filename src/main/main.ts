@@ -114,6 +114,16 @@ function setupIpcHandlers() {
   });
 
   // @ts-ignore
+  ipcMain.handle('lote:atualizar', async (_: any, id: string, dados: any): Promise<void> => {
+    return loteService.atualizarLote(id, dados);
+  });
+
+  // @ts-ignore
+  ipcMain.handle('lote:excluir', async (_: any, id: string): Promise<void> => {
+    return loteService.inativarLote(id);
+  });
+
+  // @ts-ignore
   ipcMain.handle('lote:historico', async (_: any, id: string): Promise<any[]> => {
     return loteService.obterHistorico(id);
   });
@@ -136,8 +146,8 @@ function setupIpcHandlers() {
 
   // Validade handlers
   // @ts-ignore
-  ipcMain.handle('validade:alertas', async (): Promise<any[]> => {
-    return loteService.obterAlertasValidade();
+  ipcMain.handle('validade:alertas', async (_: any, dias?: number): Promise<any[]> => {
+    return loteService.obterAlertasValidade(dias);
   });
 
   // Inventario handlers
@@ -149,6 +159,31 @@ function setupIpcHandlers() {
   // @ts-ignore
   ipcMain.handle('inventario:finalizar', async (_: any, id: string): Promise<void> => {
     return estoqueService.finalizarInventario(id);
+  });
+
+  // @ts-ignore
+  ipcMain.handle('inventario:listar', async (): Promise<any[]> => {
+    return estoqueService.listarInventarios();
+  });
+
+  // @ts-ignore
+  ipcMain.handle('inventario:listarItens', async (_: any, inventarioId: string): Promise<any[]> => {
+    return estoqueService.listarItensInventario(inventarioId);
+  });
+
+  // @ts-ignore
+  ipcMain.handle('inventario:salvarContagem', async (_: any, contagem: any): Promise<void> => {
+    return estoqueService.salvarContagem(contagem);
+  });
+
+  // @ts-ignore
+  ipcMain.handle('perda:registrar', async (_: any, loteId: string, quantidade: number, motivo: string): Promise<void> => {
+    return estoqueService.registrarPerda(loteId, quantidade, motivo);
+  });
+
+  // @ts-ignore
+  ipcMain.handle('saida:listar', async (): Promise<any[]> => {
+    return estoqueService.listarSaidas();
   });
 
   // Relatorio handlers

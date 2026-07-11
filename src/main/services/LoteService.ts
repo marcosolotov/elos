@@ -27,6 +27,16 @@ export class LoteService {
     return repo.buscarPorId(id);
   }
 
+  atualizarLote(id: string, dados: Partial<Lote>): void {
+    const repo = new (require('../database/repositories/LoteRepository').LoteRepository)(this.db.getDatabase());
+    repo.atualizar(id, dados);
+  }
+
+  inativarLote(id: string): void {
+    const repo = new (require('../database/repositories/LoteRepository').LoteRepository)(this.db.getDatabase());
+    repo.inativar(id);
+  }
+
   obterHistorico(loteId: string): any[] {
     const repo = new (require('../database/repositories/LoteRepository').LoteRepository)(this.db.getDatabase());
     return repo.obterHistorico(loteId);
@@ -35,18 +45,27 @@ export class LoteService {
   async gerarQRCode(dados: { loteId: string; codigoLote: string; itemNome: string }): Promise<string> {
     const repo = new (require('../database/repositories/LoteRepository').LoteRepository)(this.db.getDatabase());
     
-    // Gerar código único
-    const codigoUnico = `${dados.loteId}-${Date.now()}`;
+    // Verificar se já existe uma etiqueta para este lote
+    let etiquetaExistente = repo.buscarEtiquetaPorLote(dados.loteId);
     
-    // Criar etiqueta no banco
-    const etiqueta: Omit<EtiquetaQRCode, 'created_at'> = {
-      id: uuidv4(),
-      lote_id: dados.loteId,
-      codigo_unico: codigoUnico,
-      data_geracao: new Date(),
-      impresso: false,
-    };
-    repo.criarEtiquetaQRCode(etiqueta);
+    let codigoUnico: string;
+    
+    if (etiquetaExistente) {
+      // Usar código existente
+      codigoUnico = etiquetaExistente.codigo_unico;
+    } else {
+      // Criar nova etiqueta
+      codigoUnico = `LOTE-${dados.codigoLote}`;
+      
+      const etiqueta: Omit<EtiquetaQRCode, 'created_at'> = {
+        id: uuidv4(),
+        lote_id: dados.loteId,
+        codigo_unico: codigoUnico,
+        data_geracao: new Date(),
+        impresso: false,
+      };
+      repo.criarEtiquetaQRCode(etiqueta);
+    }
 
     // Gerar QR Code como imagem base64
     const qrData = JSON.stringify({

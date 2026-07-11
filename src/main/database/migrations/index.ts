@@ -7,8 +7,33 @@ export async function runMigrations(db: Database.Database): Promise<void> {
     await migrationV1(db);
   }
   
-  // Future migrations can be added here
-  // if (version < 2) { await migrationV2(db); }
+  if (version < 2) {
+    await migrationV2(db);
+  }
+}
+
+async function migrationV2(db: Database.Database): Promise<void> {
+  // Add ativo column to item table if not exists
+  const stmt = db.prepare("PRAGMA table_info(item)");
+  const columns = stmt.all() as { name: string }[];
+  const hasAtivo = columns.some(col => col.name === 'ativo');
+  
+  if (!hasAtivo) {
+    db.exec("ALTER TABLE item ADD COLUMN ativo INTEGER NOT NULL DEFAULT 1");
+  }
+  
+  // Garantir que o usuário admin existe
+  const userCount = db.prepare('SELECT COUNT(*) as count FROM usuario').get() as { count: number };
+  if (userCount.count === 0) {
+    db.prepare(`
+      INSERT INTO usuario (id, nome, perfil, login, senha_hash, created_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run('admin', 'Administrador', 'admin', 'admin', 'admin123', new Date().toISOString());
+  }
+  
+  // Set migration version
+  db.pragma('user_version = 2');
+  console.log('Migration v2 completed');
 }
 
 async function migrationV1(db: Database.Database): Promise<void> {
@@ -181,6 +206,15 @@ async function migrationV1(db: Database.Database): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_item_grupo ON item(grupo_id);
     CREATE INDEX IF NOT EXISTS idx_item_categoria ON item(categoria_id);
   `);
+
+// Inserir usuário padrão se não existir
+  const userCount = db.prepare('SELECT COUNT(*) as count FROM usuario').get() as { count: number };
+  if (userCount.count === 0) {
+    db.prepare(`
+      INSERT INTO usuario (id, nome, perfil, login, senha_hash, created_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run('admin', 'Administrador', 'admin', 'admin', 'admin123', new Date().toISOString());
+  }
 
   // Set migration version
   db.pragma('user_version = 1');

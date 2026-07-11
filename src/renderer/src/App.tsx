@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, Navigate, Link } from 'react-router-dom';
 import { Layout, Menu, Button, message } from 'antd';
 import {
   DashboardOutlined,
@@ -11,6 +11,7 @@ import {
   ShoppingCartOutlined,
   BarChartOutlined,
   SettingOutlined,
+  MinusOutlined,
 } from '@ant-design/icons';
 import Dashboard from './pages/Dashboard';
 import Itens from './pages/Itens';
@@ -20,6 +21,7 @@ import Rastreabilidade from './pages/Rastreabilidade';
 import Inventario from './pages/Inventario';
 import Rendimento from './pages/Rendimento';
 import Perdas from './pages/Perdas';
+import Saidas from './pages/Saidas';
 import Compras from './pages/Compras';
 import Relatorios from './pages/Relatorios';
 import Configuracoes from './pages/Configuracoes';
@@ -37,7 +39,7 @@ const App: React.FC = () => {
     { key: '4', icon: <AlertOutlined />, label: 'Validade', path: '/validade' },
     { key: '5', icon: <SearchOutlined />, label: 'Rastreabilidade', path: '/rastreabilidade' },
     { key: '6', icon: <CalculatorOutlined />, label: 'Inventário', path: '/inventario' },
-    { key: '7', icon: <CalculatorOutlined />, label: 'Rendimento', path: '/rendimento' },
+    { key: '7', icon: <MinusOutlined />, label: 'Saídas', path: '/saidas' },
     { key: '8', icon: <WarningOutlined />, label: 'Perdas', path: '/perdas' },
     { key: '9', icon: <ShoppingCartOutlined />, label: 'Compras', path: '/compras' },
     { key: '10', icon: <BarChartOutlined />, label: 'Relatórios', path: '/relatorios' },
@@ -55,13 +57,10 @@ const App: React.FC = () => {
             theme="dark"
             defaultSelectedKeys={['1']}
             mode="inline"
-            items={menuItems}
-            onClick={({ key }) => {
-              const item = menuItems.find(m => m.key === key);
-              if (item) {
-                window.location.href = item.path;
-              }
-            }}
+            items={menuItems.map(item => ({
+              ...item,
+              label: <Link to={item.path}>{item.label}</Link>
+            }))}
           />
         </Sider>
         <Layout>
@@ -79,6 +78,7 @@ const App: React.FC = () => {
               <Route path="/validade" element={<Validade />} />
               <Route path="/rastreabilidade" element={<Rastreabilidade />} />
               <Route path="/inventario" element={<Inventario />} />
+              <Route path="/saidas" element={<Saidas />} />
               <Route path="/rendimento" element={<Rendimento />} />
               <Route path="/perdas" element={<Perdas />} />
               <Route path="/compras" element={<Compras />} />

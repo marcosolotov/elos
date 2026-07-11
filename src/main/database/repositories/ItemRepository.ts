@@ -12,6 +12,7 @@ export class ItemRepository {
       FROM item i
       LEFT JOIN grupo_categoria gc ON i.grupo_id = gc.id
       LEFT JOIN grupo_categoria cat ON i.categoria_id = cat.id
+      WHERE i.ativo = 1
       ORDER BY i.nome
     `);
     return stmt.all() as Item[];
@@ -23,17 +24,17 @@ export class ItemRepository {
   }
 
   buscarPorNome(nome: string): Item[] {
-    const stmt = this.db.prepare('SELECT * FROM item WHERE nome LIKE ? ORDER BY nome');
+    const stmt = this.db.prepare('SELECT * FROM item WHERE nome LIKE ? AND ativo = 1 ORDER BY nome');
     return stmt.all(`%${nome}%`) as Item[];
   }
 
-  criar(item: Omit<Item, 'created_at' | 'updated_at'>): void {
+  criar(item: Omit<Item, 'created_at' | 'updated_at' | 'ativo'>): void {
     const stmt = this.db.prepare(`
-      INSERT INTO item (id, nome, descricao, grupo_id, categoria_id, estoque_minimo, unidade_medida, porcao_padrao_g, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO item (id, nome, descricao, grupo_id, categoria_id, estoque_minimo, unidade_medida, porcao_padrao_g, created_at, updated_at, ativo)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     const now = new Date().toISOString();
-    stmt.run(item.id, item.nome, item.descricao || null, item.grupo_id || null, item.categoria_id || null, item.estoque_minimo, item.unidade_medida, item.porcao_padrao_g || null, now, now);
+    stmt.run(item.id, item.nome, item.descricao || null, item.grupo_id || null, item.categoria_id || null, item.estoque_minimo, item.unidade_medida, item.porcao_padrao_g || null, now, now, 1);
   }
 
   atualizar(id: string, item: Partial<Item>): void {
@@ -56,8 +57,8 @@ export class ItemRepository {
     stmt.run(...values);
   }
 
-  excluir(id: string): void {
-    const stmt = this.db.prepare('DELETE FROM item WHERE id = ?');
+  inativar(id: string): void {
+    const stmt = this.db.prepare('UPDATE item SET ativo = 0 WHERE id = ?');
     stmt.run(id);
   }
 

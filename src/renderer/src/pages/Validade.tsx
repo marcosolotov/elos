@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Card, Table, Tag, Alert, Statistic, Row, Col, Progress, DatePicker } from 'antd';
+import { Card, Table, Tag, Alert, Statistic, Row, Col, Progress, Select } from 'antd';
 import { ClockCircleOutlined, WarningOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import './Validade.css';
 
@@ -15,7 +15,7 @@ const Validade: React.FC = () => {
   const carregarAlertas = async () => {
     setLoading(true);
     try {
-      const data = await window.electronAPI.obterAlertasValidade();
+      const data = await window.electronAPI.obterAlertasValidade(filtroDias);
       setAlertas(data || []);
     } catch (error) {
       console.error('Erro ao carregar alertas:', error);
@@ -85,7 +85,8 @@ const Validade: React.FC = () => {
       title: 'Urgência',
       key: 'urgencia',
       width: 120,
-      render: (dias: number) => {
+      render: (record: any) => {
+        const dias = record.dias_para_vencer;
         if (dias <= 0) return <Tag color="red">Crítica</Tag>;
         if (dias <= 7) return <Tag color="red">Alta</Tag>;
         if (dias <= 15) return <Tag color="orange">Média</Tag>;
@@ -102,33 +103,20 @@ const Validade: React.FC = () => {
       <Card style={{ marginBottom: 24 }}>
         <Row gutter={16} align="middle">
           <Col>
-            <span style={{ marginRight: 8 }}>Alertas de validade:</span>
-            <DatePicker.RangePicker
-              value={[null, null]}
-              onChange={(dates) => {
-                if (dates && dates[0] && dates[1]) {
-                  const diff = dates[1].toDate().getTime() - dates[0].toDate().getTime();
-                  setFiltroDias(Math.ceil(diff / (1000 * 60 * 60 * 24)));
-                }
-              }}
-              placeholder={['Data inicial', 'Data final']}
-            />
+            <span style={{ marginRight: 8 }}>Período de alerta:</span>
           </Col>
           <Col>
-            <span>ou</span>
-          </Col>
-          <Col>
-            <select
+            <Select
               value={filtroDias}
-              onChange={(e) => setFiltroDias(Number(e.target.value))}
-              style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid #d9d9d9' }}
+              onChange={(value) => setFiltroDias(value)}
+              style={{ width: 200 }}
             >
-              <option value={7}>Próximos 7 dias</option>
-              <option value={15}>Próximos 15 dias</option>
-              <option value={30}>Próximos 30 dias</option>
-              <option value={60}>Próximos 60 dias</option>
-              <option value={90}>Próximos 90 dias</option>
-            </select>
+              <Select.Option value={7}>Próximos 7 dias</Select.Option>
+              <Select.Option value={15}>Próximos 15 dias</Select.Option>
+              <Select.Option value={30}>Próximos 30 dias</Select.Option>
+              <Select.Option value={60}>Próximos 60 dias</Select.Option>
+              <Select.Option value={90}>Próximos 90 dias</Select.Option>
+            </Select>
           </Col>
         </Row>
       </Card>

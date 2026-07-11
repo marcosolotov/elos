@@ -1,0 +1,13 @@
+.saidas-page {
+  padding: 0;
+}
+
+.saidas-page h1 {
+  color: #1a3a5c;
+  margin-bottom: 24px;
+}
+
+.form-actions {
+  margin-top: 24px;
+  text-align: right;
+}

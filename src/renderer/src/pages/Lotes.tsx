@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Card, Table, Button, Modal, Form, Input, DatePicker, Select, message, Space, Tag, Popconfirm, InputNumber, Row, Col } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, QrcodeOutlined } from '@ant-design/icons';
+import dayjs from 'dayjs';
 import './Lotes.css';
 
 const { Option } = Select;
@@ -59,17 +60,18 @@ const Lotes: React.FC = () => {
 
   const handleEdit = (record: Lote) => {
     setEditingLote(record);
-    form.setFieldsValue({
+    const formattedRecord = {
       ...record,
-      data_fabricacao: record.data_fabricacao ? new Date(record.data_fabricacao) : null,
-      data_validade: new Date(record.data_validade),
-    });
+      data_fabricacao: record.data_fabricacao ? dayjs(record.data_fabricacao) : undefined,
+      data_validade: record.data_validade ? dayjs(record.data_validade) : undefined,
+    };
+    form.setFieldsValue(formattedRecord);
     setModalVisible(true);
   };
 
   const handleDelete = async (id: string) => {
     try {
-      // Implementar exclusão no backend
+      await window.electronAPI.excluirLote(id);
       message.success('Lote excluído com sucesso');
       carregarDados();
     } catch (error) {
@@ -82,16 +84,16 @@ const Lotes: React.FC = () => {
     try {
       const loteData = {
         ...values,
-        data_fabricacao: values.data_fabricacao ? values.data_fabricacao.toISOString() : null,
-        data_validade: values.data_validade.toISOString(),
-        quantidade_inicial: values.quantidade_inicial || 0,
-        saldo_atual: values.quantidade_inicial || 0,
+        data_fabricacao: values.data_fabricacao ? dayjs(values.data_fabricacao).toISOString() : null,
+        data_validade: values.data_validade ? dayjs(values.data_validade).toISOString() : new Date().toISOString(),
+        quantidade_inicial: parseFloat(values.quantidade_inicial) || 0,
+        saldo_atual: parseFloat(values.quantidade_inicial) || 0,
         ativo: true,
-        data_entrada: new Date().toISOString(),
+        data_entrada: editingLote ? editingLote.data_entrada : new Date().toISOString(),
       };
 
       if (editingLote) {
-        // Implementar atualização
+        await window.electronAPI.atualizarLote(editingLote.id, loteData);
         message.success('Lote atualizado com sucesso');
       } else {
         await window.electronAPI.cadastrarLote(loteData);
