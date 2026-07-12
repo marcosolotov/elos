@@ -53,6 +53,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // @ts-ignore
   salvarContagem: (contagem: any) => (ipcRenderer as any).invoke('inventario:salvarContagem', contagem),
   // @ts-ignore
+  listarPerdas: () => (ipcRenderer as any).invoke('perda:listar'),
   registrarPerda: (loteId: string, quantidade: number, motivo: string) => (ipcRenderer as any).invoke('perda:registrar', loteId, quantidade, motivo),
   // @ts-ignore
   listarSaidas: () => (ipcRenderer as any).invoke('saida:listar'),
@@ -68,6 +69,24 @@ contextBridge.exposeInMainWorld('electronAPI', {
   gerarQRCode: (dados: any) => (ipcRenderer as any).invoke('qrcode:gerar', dados),
   // @ts-ignore
   consultarPorQRCode: (codigo: string) => (ipcRenderer as any).invoke('qrcode:consultar', codigo),
+
+  // Compra operations
+  // @ts-ignore
+  obterListaCompraAberta: () => (ipcRenderer as any).invoke('compra:obterListaAberta'),
+  // @ts-ignore
+  criarListaCompra: () => (ipcRenderer as any).invoke('compra:criarLista'),
+  // @ts-ignore
+  listarItensListaCompra: (listaId: string) => (ipcRenderer as any).invoke('compra:listarItens', listaId),
+  // @ts-ignore
+  adicionarItemListaCompra: (dados: any) => (ipcRenderer as any).invoke('compra:adicionarItem', dados),
+  // @ts-ignore
+  finalizarListaCompra: (listaId: string) => (ipcRenderer as any).invoke('compra:finalizar', listaId),
+  // @ts-ignore
+  listarSugestoesCompra: () => (ipcRenderer as any).invoke('compra:listarSugestoes'),
+
+  // Print operations
+  // @ts-ignore
+  imprimirEtiqueta: (dados: any) => (ipcRenderer as any).invoke('print:imprimirEtiqueta', dados),
 
   // Database operations
   // @ts-ignore
@@ -95,16 +114,24 @@ declare global {
       listarMovimentacoesPorLote: (loteId: string) => Promise<any[]>;
       obterAlertasValidade: (dias?: number) => Promise<any[]>;
       abrirInventario: (inv: any) => Promise<any>;
-      finalizarInventario: (id: string) => Promise<void>;
+      finalizarInventario: (id: string) => Promise<{ ajustes: any[] }>;
       listarInventarios: () => Promise<any[]>;
       listarItensInventario: (inventarioId: string) => Promise<any[]>;
       salvarContagem: (contagem: any) => Promise<void>;
+      obterListaCompraAberta: () => Promise<any>;
+      criarListaCompra: () => Promise<any>;
+      listarItensListaCompra: (listaId: string) => Promise<any[]>;
+      adicionarItemListaCompra: (dados: any) => Promise<void>;
+      finalizarListaCompra: (listaId: string) => Promise<void>;
+      listarSugestoesCompra: () => Promise<any[]>;
+      listarPerdas: () => Promise<any[]>;
       registrarPerda: (loteId: string, quantidade: number, motivo: string) => Promise<void>;
       listarSaidas: () => Promise<any[]>;
       gerarRelatorioPosicaoEstoque: () => Promise<any[]>;
       gerarRelatorioIndicadores: (inicio: string, fim: string) => Promise<any>;
       gerarQRCode: (dados: any) => Promise<string>;
       consultarPorQRCode: (codigo: string) => Promise<any>;
+      imprimirEtiqueta: (dados: any) => Promise<void>;
       backup: (caminho: string) => Promise<void>;
       restaurar: (caminho: string) => Promise<void>;
     };

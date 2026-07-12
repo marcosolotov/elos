@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Card, Table, Button, Modal, Form, Input, DatePicker, Select, message, Space, Tag, Popconfirm, InputNumber, Row, Col } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, QrcodeOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, QrcodeOutlined, PrinterOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import './Lotes.css';
 
@@ -107,6 +107,32 @@ const Lotes: React.FC = () => {
     }
   };
 
+  const handleImprimirEtiqueta = async (lote: Lote) => {
+    try {
+      // Primeiro gera o QR Code
+      const qrCodeDataUrl = await window.electronAPI.gerarQRCode({
+        loteId: lote.id,
+        codigoLote: lote.codigo_lote,
+        itemNome: lote.item_nome || 'Item',
+      });
+
+      // Depois imprime a etiqueta
+      await window.electronAPI.imprimirEtiqueta({
+        codigoLote: lote.codigo_lote,
+        itemNome: lote.item_nome || 'Item',
+        dataValidade: lote.data_validade,
+        dataFabricacao: lote.data_fabricacao,
+        saldoAtual: lote.saldo_atual,
+        qrCodeDataUrl,
+      });
+
+      message.success('Etiqueta enviada para impressão');
+    } catch (error) {
+      message.error('Erro ao imprimir etiqueta');
+      console.error(error);
+    }
+  };
+
   const handleGerarQRCode = async (lote: Lote) => {
     try {
       const qrCode = await window.electronAPI.gerarQRCode({
@@ -202,6 +228,13 @@ const Lotes: React.FC = () => {
       render: (_: any, record: Lote) => (
         <Space size="small">
             <Button
+            type="primary"
+            size="small"
+            icon={<PrinterOutlined />}
+            onClick={() => handleImprimirEtiqueta(record)}
+            title="Imprimir Etiqueta"
+          />
+          <Button
             type="primary"
             size="small"
             icon={<QrcodeOutlined />}

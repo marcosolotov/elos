@@ -33,14 +33,14 @@ const Perdas: React.FC = () => {
   const carregarDados = async () => {
     setLoading(true);
     try {
-      const [itensData, lotesData] = await Promise.all([
+      const [itensData, lotesData, perdasData] = await Promise.all([
         window.electronAPI.listarItens(),
         window.electronAPI.listarLotes(),
+        window.electronAPI.listarPerdas(),
       ]);
       setItens(itensData || []);
       setLotes(lotesData || []);
-      // Carregar perdas (implementar backend)
-      setPerdas([]);
+      setPerdas(perdasData || []);
     } catch (error) {
       message.error('Erro ao carregar dados');
       console.error(error);

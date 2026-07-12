@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react';
-import { Card, Table, Button, Modal, Form, Input, InputNumber, message, Space, Tag, Statistic, Row, Col } from 'antd';
-import { PlusOutlined, ShoppingCartOutlined, CheckOutlined } from '@ant-design/icons';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Card, Table, Button, Modal, Form, Input, InputNumber, Select, message, Space, Tag, Statistic, Row, Col } from 'antd';
+import { PlusOutlined, ShoppingCartOutlined, CheckOutlined, ReloadOutlined } from '@ant-design/icons';
+const { Option } = Select;
+const { TextArea } = Input;
 import './Compras.css';
 
 interface ItemCompra {
@@ -16,19 +18,88 @@ interface ItemCompra {
 
 const Compras: React.FC = () => {
   const [itensCompra, setItensCompra] = useState<ItemCompra[]>([]);
+  const [listaId, setListaId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
+  const [itens, setItens] = useState<any[]>([]);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [form] = Form.useForm();
 
   useEffect(() => {
-    carregarSugestoes();
+    carregarDadosIniciais();
   }, []);
+
+  const carregarDadosIniciais = async () => {
+    setLoading(true);
+    try {
+      const [itensData] = await Promise.all([
+        window.electronAPI.listarItens(),
+      ]);
+      setItens(itensData || []);
+      
+      // Tentar obter lista aberta existente ou criar nova
+      let lista = await window.electronAPI.obterListaCompraAberta();
+      if (!lista) {
+        lista = await window.electronAPI.criarListaCompra();
+      }
+      setListaId(lista.id);
+      
+      // Carregar itens da lista
+      await carregarItensLista(lista.id);
+    } catch (error) {
+      message.error('Erro ao carregar dados');
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const carregarItensLista = async (id: string) => {
+    try {
+      const data = await window.electronAPI.listarItensListaCompra(id);
+      const mapped = (data || []).map((item: any) => ({
+        id: item.id,
+        item_id: item.item_id,
+        item_nome: item.item_nome,
+        quantidade_sugerida: item.quantidade_sugerida,
+        estoque_atual: item.estoque_atual || 0,
+        estoque_minimo: item.estoque_minimo || 0,
+        motivo: item.incluido_manualmente ? 'Adicionado manualmente' : 'Estoque baixo',
+        prioridade: item.estoque_atual <= 0 ? 'alta' as const : item.estoque_atual < item.estoque_minimo / 2 ? 'alta' as const : 'media' as const,
+      }));
+      setItensCompra(mapped);
+      setHasUnsavedChanges(false);
+    } catch (error) {
+      console.error('Erro ao carregar itens da lista:', error);
+    }
+  };
 
   const carregarSugestoes = async () => {
     setLoading(true);
     try {
-      // Carregar itens com estoque baixo (implementar backend)
-      setItensCompra([]);
+      const sugestoes = await window.electronAPI.listarSugestoesCompra();
+      if (sugestoes && sugestoes.length > 0) {
+        // Adicionar sugestões à lista atual
+        for (const sug of sugestoes) {
+          try {
+            await window.electronAPI.adicionarItemListaCompra({
+              lista_id: listaId,
+              item_id: sug.item_id,
+              quantidade_sugerida: sug.quantidade_sugerida,
+              incluido_manualmente: false,
+            });
+          } catch (e: any) {
+            // Ignorar se já está na lista
+            if (!e.message?.includes('já está na lista')) {
+              console.error('Erro ao adicionar sugestão:', e);
+            }
+          }
+        }
+        if (listaId) await carregarItensLista(listaId);
+        message.success(`${sugestoes.length} itens com estoque baixo adicionados`);
+      } else {
+        message.info('Nenhum item com estoque baixo encontrado');
+      }
     } catch (error) {
       message.error('Erro ao carregar sugestões');
       console.error(error);
@@ -39,19 +110,43 @@ const Compras: React.FC = () => {
 
   const handleAdicionarItem = async (values: any) => {
     try {
-      // Implementar cadastro no backend
+      if (!listaId) {
+        message.error('Nenhuma lista de compras ativa');
+        return;
+      }
+      
+      await window.electronAPI.adicionarItemListaCompra({
+        lista_id: listaId,
+        item_id: values.item_id,
+        quantidade_sugerida: values.quantidade_sugerida,
+        incluido_manualmente: true,
+      });
+      
+      await carregarItensLista(listaId);
       message.success('Item adicionado à lista de compras');
       setModalVisible(false);
       form.resetFields();
-    } catch (error) {
-      message.error('Erro ao adicionar item');
+    } catch (error: any) {
+      message.error(error.message || 'Erro ao adicionar item');
       console.error(error);
     }
   };
 
-  const handleFinalizarLista = () => {
-    message.success('Lista de compras finalizada!');
-    // Implementar exportação ou impressão
+  const handleFinalizarLista = async () => {
+    if (!listaId) return;
+    try {
+      await window.electronAPI.finalizarListaCompra(listaId);
+      message.success('Lista de compras finalizada!');
+      
+      // Criar nova lista
+      const novaLista = await window.electronAPI.criarListaCompra();
+      setListaId(novaLista.id);
+      setItensCompra([]);
+      setHasUnsavedChanges(false);
+    } catch (error) {
+      message.error('Erro ao finalizar lista');
+      console.error(error);
+    }
   };
 
   const totalItens = itensCompra.length;
@@ -196,11 +291,23 @@ const Compras: React.FC = () => {
           onFinish={handleAdicionarItem}
         >
           <Form.Item
-            name="item_nome"
-            label="Nome do Item"
-            rules={[{ required: true, message: 'Por favor, insira o nome do item' }]}
+            name="item_id"
+            label="Item"
+            rules={[{ required: true, message: 'Por favor, selecione o item' }]}
           >
-            <Input placeholder="Ex: Arroz, Feijão..." />
+            <Select 
+              placeholder="Selecione o item..."
+              showSearch
+              filterOption={(input, option) => 
+                (option?.children as any)?.toString().toLowerCase().includes(input.toLowerCase())
+              }
+            >
+              {itens.map((item: any) => (
+                <Option key={item.id} value={item.id}>
+                  {item.nome} - Estoque: {item.saldo_total?.toFixed(2) || '0.00'} | Mínimo: {item.estoque_minimo?.toFixed(2)}
+                </Option>
+              ))}
+            </Select>
           </Form.Item>
 
           <Form.Item
@@ -228,15 +335,14 @@ const Compras: React.FC = () => {
           <Form.Item
             name="prioridade"
             label="Prioridade"
+            initialValue="media"
             rules={[{ required: true, message: 'Por favor, selecione a prioridade' }]}
           >
-            <select
-              style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid #d9d9d9', width: '100%' }}
-            >
-              <option value="alta">Alta - Urgente</option>
-              <option value="media">Média - Importante</option>
-              <option value="baixa">Baixa - Preventiva</option>
-            </select>
+            <Select placeholder="Selecione a prioridade...">
+              <Option value="alta">🔴 Alta - Urgente</Option>
+              <Option value="media">🟡 Média - Importante</Option>
+              <Option value="baixa">🔵 Baixa - Preventiva</Option>
+            </Select>
           </Form.Item>
 
           <Form.Item className="form-actions">

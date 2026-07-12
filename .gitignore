@@ -33,3 +33,5 @@ out/
 
 # Backup files
 *.backup
+
+.continue

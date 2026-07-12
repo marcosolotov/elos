@@ -4,6 +4,7 @@ import { DatabaseService } from './database/DatabaseService';
 import { EstoqueService } from './services/EstoqueService';
 import { LoteService } from './services/LoteService';
 import { RelatorioService } from './services/RelatorioService';
+import { PrintService } from './services/PrintService';
 
 // @ts-ignore
 let mainWindow: any = null;
@@ -11,6 +12,7 @@ let databaseService: DatabaseService;
 let estoqueService: EstoqueService;
 let loteService: LoteService;
 let relatorioService: RelatorioService;
+let printService: PrintService;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -56,6 +58,7 @@ function createWindow() {
   estoqueService = new EstoqueService(databaseService);
   loteService = new LoteService(databaseService);
   relatorioService = new RelatorioService(databaseService);
+  printService = new PrintService();
 
   // Setup IPC handlers
   setupIpcHandlers();
@@ -157,7 +160,7 @@ function setupIpcHandlers() {
   });
 
   // @ts-ignore
-  ipcMain.handle('inventario:finalizar', async (_: any, id: string): Promise<void> => {
+  ipcMain.handle('inventario:finalizar', async (_: any, id: string): Promise<{ ajustes: any[] }> => {
     return estoqueService.finalizarInventario(id);
   });
 
@@ -174,6 +177,42 @@ function setupIpcHandlers() {
   // @ts-ignore
   ipcMain.handle('inventario:salvarContagem', async (_: any, contagem: any): Promise<void> => {
     return estoqueService.salvarContagem(contagem);
+  });
+
+  // Compra handlers
+  // @ts-ignore
+  ipcMain.handle('compra:obterListaAberta', async (): Promise<any> => {
+    return estoqueService.obterListaCompraAberta();
+  });
+
+  // @ts-ignore
+  ipcMain.handle('compra:criarLista', async (): Promise<any> => {
+    return estoqueService.criarListaCompra();
+  });
+
+  // @ts-ignore
+  ipcMain.handle('compra:listarItens', async (_: any, listaId: string): Promise<any[]> => {
+    return estoqueService.listarItensListaCompra(listaId);
+  });
+
+  // @ts-ignore
+  ipcMain.handle('compra:adicionarItem', async (_: any, dados: any): Promise<void> => {
+    return estoqueService.adicionarItemListaCompra(dados);
+  });
+
+  // @ts-ignore
+  ipcMain.handle('compra:finalizar', async (_: any, listaId: string): Promise<void> => {
+    return estoqueService.finalizarListaCompra(listaId);
+  });
+
+  // @ts-ignore
+  ipcMain.handle('compra:listarSugestoes', async (): Promise<any[]> => {
+    return estoqueService.listarSugestoesCompra();
+  });
+
+  // @ts-ignore
+  ipcMain.handle('perda:listar', async (): Promise<any[]> => {
+    return estoqueService.listarPerdas();
   });
 
   // @ts-ignore
@@ -206,6 +245,12 @@ function setupIpcHandlers() {
   // @ts-ignore
   ipcMain.handle('qrcode:consultar', async (_: any, codigo: string): Promise<any> => {
     return loteService.consultarPorQRCode(codigo);
+  });
+
+  // Print handlers
+  // @ts-ignore
+  ipcMain.handle('print:imprimirEtiqueta', async (_: any, dados: any): Promise<void> => {
+    return printService.imprimirEtiqueta(dados);
   });
 
   // Database handlers

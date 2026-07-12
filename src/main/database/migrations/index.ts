@@ -10,6 +10,10 @@ export async function runMigrations(db: Database.Database): Promise<void> {
   if (version < 2) {
     await migrationV2(db);
   }
+  
+  if (version < 3) {
+    await migrationV3(db);
+  }
 }
 
 async function migrationV2(db: Database.Database): Promise<void> {
@@ -34,6 +38,21 @@ async function migrationV2(db: Database.Database): Promise<void> {
   // Set migration version
   db.pragma('user_version = 2');
   console.log('Migration v2 completed');
+}
+
+async function migrationV3(db: Database.Database): Promise<void> {
+  // Adicionar coluna prioridade na tabela item_lista_compra
+  const stmt = db.prepare("PRAGMA table_info(item_lista_compra)");
+  const columns = stmt.all() as { name: string }[];
+  const hasPrioridade = columns.some(col => col.name === 'prioridade');
+  
+  if (!hasPrioridade) {
+    db.exec("ALTER TABLE item_lista_compra ADD COLUMN prioridade TEXT NOT NULL DEFAULT 'media' CHECK(prioridade IN ('alta', 'media', 'baixa'))");
+    console.log('Migration v3: added prioridade column to item_lista_compra');
+  }
+  
+  db.pragma('user_version = 3');
+  console.log('Migration v3 completed');
 }
 
 async function migrationV1(db: Database.Database): Promise<void> {

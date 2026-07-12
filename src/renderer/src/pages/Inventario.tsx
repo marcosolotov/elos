@@ -82,9 +82,71 @@ const Inventario: React.FC = () => {
 
   const handleFinalizarInventario = async (id: string) => {
     try {
-      await window.electronAPI.finalizarInventario(id);
-      message.success('Inventário finalizado com sucesso');
+      const resultado = await window.electronAPI.finalizarInventario(id);
+      
+      if (resultado.ajustes && resultado.ajustes.length > 0) {
+        // Mostrar relatório de ajustes
+        const saidas = resultado.ajustes.filter((a: any) => a.tipo === 'saida');
+        const entradas = resultado.ajustes.filter((a: any) => a.tipo === 'entrada');
+        
+        Modal.info({
+          title: 'Inventário Finalizado - Ajustes Automáticos',
+          width: 700,
+          content: (
+            <div>
+              <p style={{ marginBottom: 16 }}>
+                Foram realizados <strong>{resultado.ajustes.length}</strong> ajustes automáticos no estoque.
+              </p>
+              
+              {saidas.length > 0 && (
+                <div style={{ marginBottom: 16 }}>
+                  <h4 style={{ color: '#cf1322' }}>🔻 Saídas (itens que faltaram): {saidas.length}</h4>
+                  <Table
+                    dataSource={saidas}
+                    columns={[
+                      { title: 'Item', dataIndex: 'item_nome', key: 'item_nome' },
+                      { title: 'Lote', dataIndex: 'codigo_lote', key: 'codigo_lote' },
+                      { title: 'Qtd', dataIndex: 'quantidade', key: 'quantidade', render: (v: number) => v.toFixed(2) },
+                      { title: 'Saldo Anterior', dataIndex: 'saldo_anterior', key: 'saldo_anterior', render: (v: number) => v.toFixed(2) },
+                      { title: 'Novo Saldo', dataIndex: 'novo_saldo', key: 'novo_saldo', render: (v: number) => v.toFixed(2) },
+                    ]}
+                    rowKey="lote_id"
+                    pagination={false}
+                    size="small"
+                    style={{ marginTop: 8 }}
+                  />
+                </div>
+              )}
+              
+              {entradas.length > 0 && (
+                <div>
+                  <h4 style={{ color: '#389e0d' }}>🔺 Entradas (itens que sobraram): {entradas.length}</h4>
+                  <Table
+                    dataSource={entradas}
+                    columns={[
+                      { title: 'Item', dataIndex: 'item_nome', key: 'item_nome' },
+                      { title: 'Lote', dataIndex: 'codigo_lote', key: 'codigo_lote' },
+                      { title: 'Qtd', dataIndex: 'quantidade', key: 'quantidade', render: (v: number) => v.toFixed(2) },
+                      { title: 'Saldo Anterior', dataIndex: 'saldo_anterior', key: 'saldo_anterior', render: (v: number) => v.toFixed(2) },
+                      { title: 'Novo Saldo', dataIndex: 'novo_saldo', key: 'novo_saldo', render: (v: number) => v.toFixed(2) },
+                    ]}
+                    rowKey="lote_id"
+                    pagination={false}
+                    size="small"
+                    style={{ marginTop: 8 }}
+                  />
+                </div>
+              )}
+            </div>
+          ),
+        });
+      } else {
+        message.success('Inventário finalizado com sucesso. Nenhum ajuste foi necessário.');
+      }
+      
       carregarInventarios();
+      setInventarioSelecionado(null);
+      setItensInventario([]);
     } catch (error) {
       message.error('Erro ao finalizar inventário');
       console.error(error);
