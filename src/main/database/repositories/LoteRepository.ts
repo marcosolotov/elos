@@ -4,15 +4,45 @@ import { Lote, Movimentacao, PerdaDesperdicio, EtiquetaQRCode } from '../../../s
 export class LoteRepository {
   constructor(private db: Database.Database) {}
 
-  listarTodos(): Lote[] {
-    const stmt = this.db.prepare(`
+  listarTodos(apenasAtivos: boolean = true): Lote[] {
+    let query = `
       SELECT l.*, i.nome as item_nome
       FROM lote l
       JOIN item i ON l.item_id = i.id
       WHERE l.ativo = 1
-      ORDER BY l.data_validade ASC
+    `;
+    
+    if (apenasAtivos) {
+      query += ' AND l.arquivado = 0';
+    }
+    
+    query += ' ORDER BY l.data_validade ASC';
+    
+    const stmt = this.db.prepare(query);
+    return stmt.all() as Lote[];
+  }
+
+  listarArquivados(): Lote[] {
+    const stmt = this.db.prepare(`
+      SELECT l.*, i.nome as item_nome
+      FROM lote l
+      JOIN item i ON l.item_id = i.id
+      WHERE l.ativo = 1 AND l.arquivado = 1
+      ORDER BY l.data_entrada DESC
     `);
     return stmt.all() as Lote[];
+  }
+
+  listarPorPeriodo(dataInicio: string, dataFim: string): Lote[] {
+    const stmt = this.db.prepare(`
+      SELECT l.*, i.nome as item_nome
+      FROM lote l
+      JOIN item i ON l.item_id = i.id
+      WHERE l.ativo = 1 AND l.arquivado = 0
+        AND l.data_entrada BETWEEN ? AND ?
+      ORDER BY l.data_entrada DESC
+    `);
+    return stmt.all(dataInicio, dataFim) as Lote[];
   }
 
   buscarPorId(id: string): Lote | null {
@@ -37,20 +67,25 @@ export class LoteRepository {
   criar(lote: Omit<Lote, 'created_at'>): void {
     const stmt = this.db.prepare(`
       INSERT INTO lote (id, item_id, codigo_lote, data_fabricacao, data_validade, 
-                       quantidade_inicial, saldo_atual, fornecedor_id, data_entrada, ativo, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                       quantidade_inicial, saldo_atual, fornecedor_id, data_entrada, ativo, arquivado, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     stmt.run(
       lote.id, lote.item_id, lote.codigo_lote, lote.data_fabricacao || null,
       lote.data_validade, lote.quantidade_inicial, lote.saldo_atual,
       lote.fornecedor_id || null, lote.data_entrada, lote.ativo ? 1 : 0,
-      new Date().toISOString()
+      lote.arquivado ? 1 : 0, new Date().toISOString()
     );
   }
 
   atualizarSaldo(id: string, novoSaldo: number): void {
     const stmt = this.db.prepare('UPDATE lote SET saldo_atual = ? WHERE id = ?');
     stmt.run(novoSaldo, id);
+    
+    // Arquivar lote se saldo zerar
+    if (novoSaldo === 0) {
+      this.atualizar(id, { arquivado: true });
+    }
   }
 
   atualizar(id: string, dados: Partial<Lote>): void {

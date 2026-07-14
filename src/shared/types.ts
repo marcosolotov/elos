@@ -47,6 +47,7 @@ export interface Lote {
   fornecedor_id?: string;
   data_entrada: Date;
   ativo: boolean;
+  arquivado: boolean;
   created_at: Date;
 }
 

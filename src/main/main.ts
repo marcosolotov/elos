@@ -63,6 +63,9 @@ function createWindow() {
   // Setup IPC handlers
   setupIpcHandlers();
 
+  // Arquivar lotes com saldo zero
+  loteService.arquivarLotesComSaldoZero();
+
   createWindow();
 
   app.on('activate', () => {
@@ -129,6 +132,16 @@ function setupIpcHandlers() {
   // @ts-ignore
   ipcMain.handle('lote:historico', async (_: any, id: string): Promise<any[]> => {
     return loteService.obterHistorico(id);
+  });
+
+  // @ts-ignore
+  ipcMain.handle('lote:listarArquivados', async (): Promise<any[]> => {
+    return loteService.listarLotesArquivados();
+  });
+
+  // @ts-ignore
+  ipcMain.handle('lote:listarPorPeriodo', async (_: any, inicio: string, fim: string): Promise<any[]> => {
+    return loteService.listarLotesPorPeriodo(inicio, fim);
   });
 
   // Movimentacao handlers

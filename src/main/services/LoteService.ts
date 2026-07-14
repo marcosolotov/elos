@@ -142,10 +142,79 @@ export class LoteService {
     // Atualizar saldo
     const novoSaldo = lote.saldo_atual - perda.quantidade;
     repo.atualizarSaldo(lote.id, novoSaldo);
+
+    // Arquivar lote se saldo zerar
+    if (novoSaldo === 0) {
+      repo.atualizar(lote.id, { arquivado: true });
+    }
+  }
+
+  registrarSaida(saida: { lote_id: string; quantidade: number; usuario_id: string; motivo?: string; documento_referencia?: string }): void {
+    const repo = new (require('../database/repositories/LoteRepository').LoteRepository)(this.db.getDatabase());
+    
+    // Buscar lote
+    const lote = repo.buscarPorId(saida.lote_id);
+    if (!lote) {
+      throw new Error('Lote não encontrado');
+    }
+
+    // Validar saldo suficiente
+    if (lote.saldo_atual < saida.quantidade) {
+      throw new Error(`Saldo insuficiente para saída. Disponível: ${lote.saldo_atual}, Solicitado: ${saida.quantidade}`);
+    }
+
+    // Registrar movimentação de saída
+    repo.registrarMovimentacao({
+      id: uuidv4(),
+      lote_id: saida.lote_id,
+      tipo: 'saida',
+      quantidade: saida.quantidade,
+      data: new Date().toISOString(),
+      usuario_id: saida.usuario_id,
+      motivo: saida.motivo || null,
+      documento_referencia: saida.documento_referencia || null,
+      created_at: new Date().toISOString(),
+    });
+
+    // Atualizar saldo
+    const novoSaldo = lote.saldo_atual - saida.quantidade;
+    repo.atualizarSaldo(lote.id, novoSaldo);
+
+    // Arquivar lote se saldo zerar
+    if (novoSaldo === 0) {
+      repo.atualizar(lote.id, { arquivado: true });
+    }
+  }
+
+  listarLotesArquivados(): Lote[] {
+    const repo = new (require('../database/repositories/LoteRepository').LoteRepository)(this.db.getDatabase());
+    return repo.listarArquivados();
+  }
+
+  listarLotesPorPeriodo(dataInicio: string, dataFim: string): Lote[] {
+    const repo = new (require('../database/repositories/LoteRepository').LoteRepository)(this.db.getDatabase());
+    return repo.listarPorPeriodo(dataInicio, dataFim);
   }
 
   obterPerdasPorPeriodo(dataInicio: string, dataFim: string): any[] {
     const repo = new (require('../database/repositories/LoteRepository').LoteRepository)(this.db.getDatabase());
     return repo.obterPerdasPorPeriodo(dataInicio, dataFim);
+  }
+
+  arquivarLotesComSaldoZero(): void {
+    const repo = new (require('../database/repositories/LoteRepository').LoteRepository)(this.db.getDatabase());
+    const lotes = repo.listarTodos(false); // Buscar todos, incluindo arquivados
+    
+    let arquivados = 0;
+    lotes.forEach((lote: Lote) => {
+      if (lote.saldo_atual === 0 && !lote.arquivado) {
+        repo.atualizar(lote.id, { arquivado: true });
+        arquivados++;
+      }
+    });
+    
+    if (arquivados > 0) {
+      console.log(`[LoteService] ${arquivados} lotes com saldo zero foram arquivados`);
+    }
   }
 }

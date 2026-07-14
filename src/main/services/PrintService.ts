@@ -16,11 +16,11 @@ export class PrintService {
   }): Promise<void> {
     const htmlContent = this.gerarEtiquetaHTML(dados);
     
-    // Criar uma janela MINIMIZADA com a etiqueta para usar o print() nativo
+    // Criar uma janela VISÍVEL com a etiqueta para teste no navegador
     const printWindow = new BrowserWindow({
       width: 400,
       height: 600,
-      show: false, // Não mostra a janela
+      show: true, // Mostra a janela para visualização
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: true,

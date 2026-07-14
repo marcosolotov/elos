@@ -1,18 +1,28 @@
 import { useState, useEffect } from 'react';
-import { Card, Row, Col, Statistic, Alert, Table, Tag, Progress } from 'antd';
+import { Card, Row, Col, Statistic, Alert, Table, Tag, Button, Space } from 'antd';
 import {
   AlertOutlined,
   InboxOutlined,
   ExclamationCircleOutlined,
   CheckCircleOutlined,
   ClockCircleOutlined,
+  PlusOutlined,
+  BarcodeOutlined,
+  CalculatorOutlined,
+  MinusOutlined,
 } from '@ant-design/icons';
+import { useNavigate } from 'react-router-dom';
 import './Dashboard.css';
 
 const Dashboard: React.FC = () => {
   const [alertas, setAlertas] = useState<any[]>([]);
   const [itens, setItens] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+
+  const handleNavigate = (key: string) => {
+    navigate(key);
+  };
 
   useEffect(() => {
     carregarDados();
@@ -146,25 +156,34 @@ const Dashboard: React.FC = () => {
         )}
       </Card>
 
-      {/* Ações Rápidas */}
-      <Row gutter={16}>
-        <Col span={12}>
-          <Card title="Ações Rápidas" size="small">
-            <p>• Cadastrar novo item</p>
-            <p>• Registrar entrada de estoque</p>
-            <p>• Gerar etiqueta QR Code</p>
-            <p>• Realizar inventário</p>
-          </Card>
-        </Col>
-        <Col span={12}>
-          <Card title="Resumo do Sistema" size="small">
-            <p>• Banco de dados: SQLite local</p>
-            <p>• Modo: 100% offline</p>
-            <p>• Versão: 1.0.0</p>
-            <p>• Última atualização: {new Date().toLocaleDateString('pt-BR')}</p>
-          </Card>
-        </Col>
-      </Row>
+      {/* Atalhos */}
+      <Card title="Atalhos" style={{ marginBottom: 24 }}>
+        <Space wrap>
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/itens')}>
+            Adicionar Item
+          </Button>
+          <Button type="primary" icon={<BarcodeOutlined />} onClick={() => navigate('/lotes')}>
+            Adicionar Lote
+          </Button>
+          <Button type="primary" icon={<AlertOutlined />} onClick={() => navigate('/validade')}>
+            Validade
+          </Button>
+          <Button type="primary" icon={<CalculatorOutlined />} onClick={() => navigate('/inventario')}>
+            Inventário
+          </Button>
+          <Button type="primary" icon={<MinusOutlined />} onClick={() => navigate('/saidas')}>
+            Saída
+          </Button>
+        </Space>
+      </Card>
+
+      {/* Informações do Sistema */}
+      <Card title="Informações do Sistema" size="small">
+        <p>• Banco de dados: SQLite local</p>
+        <p>• Modo: 100% offline</p>
+        <p>• Versão: 1.0.0-BETA01</p>
+        <p>• Última atualização: {new Date().toLocaleDateString('pt-BR')}</p>
+      </Card>
     </div>
   );
 };

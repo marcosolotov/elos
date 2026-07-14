@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Card, Table, Button, Modal, Form, Input, DatePicker, Select, message, Space, Tag, Popconfirm, InputNumber, Row, Col } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, QrcodeOutlined, PrinterOutlined } from '@ant-design/icons';
+import { Card, Table, Button, Modal, Form, Input, DatePicker, Select, message, Space, Tag, Popconfirm, InputNumber, Row, Col, Radio, Tabs } from 'antd';
+import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, QrcodeOutlined, PrinterOutlined, FilterOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import './Lotes.css';
 
@@ -18,17 +18,22 @@ interface Lote {
   fornecedor_id?: string;
   data_entrada: string;
   ativo: boolean;
+  arquivado: boolean;
   created_at: string;
   item_nome?: string;
 }
 
 const Lotes: React.FC = () => {
   const [lotes, setLotes] = useState<Lote[]>([]);
+  const [lotesArquivados, setLotesArquivados] = useState<Lote[]>([]);
   const [itens, setItens] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingLote, setEditingLote] = useState<Lote | null>(null);
   const [searchText, setSearchText] = useState('');
+  const [filtroDataInicio, setFiltroDataInicio] = useState<string | null>(null);
+  const [filtroDataFim, setFiltroDataFim] = useState<string | null>(null);
+  const [abaAtiva, setAbaAtiva] = useState('ativos');
   const [form] = Form.useForm();
 
   useEffect(() => {
@@ -38,11 +43,13 @@ const Lotes: React.FC = () => {
   const carregarDados = async () => {
     setLoading(true);
     try {
-      const [lotesData, itensData] = await Promise.all([
+      const [lotesData, lotesArquivadosData, itensData] = await Promise.all([
         window.electronAPI.listarLotes(),
+        window.electronAPI.listarLotesArquivados(),
         window.electronAPI.listarItens(),
       ]);
       setLotes(lotesData || []);
+      setLotesArquivados(lotesArquivadosData || []);
       setItens(itensData || []);
     } catch (error) {
       message.error('Erro ao carregar dados');
@@ -50,6 +57,31 @@ const Lotes: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleFiltrarPorPeriodo = async () => {
+    if (!filtroDataInicio || !filtroDataFim) {
+      message.warning('Selecione o período para filtrar');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const lotesFiltrados = await window.electronAPI.listarLotesPorPeriodo(filtroDataInicio, filtroDataFim);
+      setLotes(lotesFiltrados || []);
+      message.success(`Filtrado ${lotesFiltrados?.length || 0} lotes no período`);
+    } catch (error) {
+      message.error('Erro ao filtrar lotes');
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLimparFiltro = () => {
+    setFiltroDataInicio(null);
+    setFiltroDataFim(null);
+    carregarDados();
   };
 
   const handleCreate = () => {
@@ -260,6 +292,47 @@ const Lotes: React.FC = () => {
     },
   ];
 
+  const filteredLotesAtivos = lotes.filter((lote) =>
+    lote.codigo_lote.toLowerCase().includes(searchText.toLowerCase()) ||
+    lote.item_nome?.toLowerCase().includes(searchText.toLowerCase())
+  );
+
+  const filteredLotesArquivados = lotesArquivados.filter((lote) =>
+    lote.codigo_lote.toLowerCase().includes(searchText.toLowerCase()) ||
+    lote.item_nome?.toLowerCase().includes(searchText.toLowerCase())
+  );
+
+  const tabItems = [
+    {
+      key: 'ativos',
+      label: 'Lotes Ativos',
+      children: (
+        <Table
+          columns={columns}
+          dataSource={filteredLotesAtivos}
+          rowKey="id"
+          loading={loading}
+          pagination={{ pageSize: 10 }}
+          scroll={{ x: 1200 }}
+        />
+      ),
+    },
+    {
+      key: 'arquivados',
+      label: `Lotes Arquivados (${lotesArquivados.length})`,
+      children: (
+        <Table
+          columns={columns}
+          dataSource={filteredLotesArquivados}
+          rowKey="id"
+          loading={loading}
+          pagination={{ pageSize: 10 }}
+          scroll={{ x: 1200 }}
+        />
+      ),
+    },
+  ];
+
   return (
     <div className="lotes-page">
       <div className="lotes-header">
@@ -272,6 +345,24 @@ const Lotes: React.FC = () => {
             onChange={(e) => setSearchText(e.target.value)}
             style={{ width: 300 }}
           />
+          <DatePicker
+            placeholder="Data Início"
+            value={filtroDataInicio ? dayjs(filtroDataInicio) : null}
+            onChange={(date) => setFiltroDataInicio(date ? date.format('YYYY-MM-DD') : null)}
+            format="DD/MM/YYYY"
+          />
+          <DatePicker
+            placeholder="Data Fim"
+            value={filtroDataFim ? dayjs(filtroDataFim) : null}
+            onChange={(date) => setFiltroDataFim(date ? date.format('YYYY-MM-DD') : null)}
+            format="DD/MM/YYYY"
+          />
+          <Button icon={<FilterOutlined />} onClick={handleFiltrarPorPeriodo}>
+            Filtrar
+          </Button>
+          <Button onClick={handleLimparFiltro}>
+            Limpar
+          </Button>
           <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
             Novo Lote
           </Button>
@@ -279,14 +370,7 @@ const Lotes: React.FC = () => {
       </div>
 
       <Card>
-        <Table
-          columns={columns}
-          dataSource={filteredLotes}
-          rowKey="id"
-          loading={loading}
-          pagination={{ pageSize: 10 }}
-          scroll={{ x: 1200 }}
-        />
+        <Tabs activeKey={abaAtiva} onChange={setAbaAtiva} items={tabItems} />
       </Card>
 
       <Modal

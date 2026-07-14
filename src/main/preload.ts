@@ -19,6 +19,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // @ts-ignore
   listarLotes: () => (ipcRenderer as any).invoke('lote:listar'),
   // @ts-ignore
+  listarLotesArquivados: () => (ipcRenderer as any).invoke('lote:listarArquivados'),
+  // @ts-ignore
+  listarLotesPorPeriodo: (inicio: string, fim: string) => (ipcRenderer as any).invoke('lote:listarPorPeriodo', inicio, fim),
+  // @ts-ignore
   cadastrarLote: (lote: any) => (ipcRenderer as any).invoke('lote:cadastrar', lote),
   // @ts-ignore
   consultarLote: (id: string) => (ipcRenderer as any).invoke('lote:consultar', id),
@@ -104,6 +108,8 @@ declare global {
       atualizarItem: (id: string, item: any) => Promise<void>;
       excluirItem: (id: string) => Promise<void>;
       listarLotes: () => Promise<any[]>;
+      listarLotesArquivados: () => Promise<any[]>;
+      listarLotesPorPeriodo: (inicio: string, fim: string) => Promise<any[]>;
       cadastrarLote: (lote: any) => Promise<any>;
       consultarLote: (id: string) => Promise<any>;
       atualizarLote: (id: string, dados: any) => Promise<void>;

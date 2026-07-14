@@ -88,6 +88,11 @@ export class EstoqueService {
     repoLote.atualizarSaldo(lote.id, novoSaldo);
     repoLote.registrarMovimentacao(novaMovimentacao);
 
+    // Arquivar lote se saldo zerar
+    if (novoSaldo === 0) {
+      repoLote.atualizar(lote.id, { arquivado: true });
+    }
+
     return novaMovimentacao;
   }
 
@@ -470,6 +475,11 @@ export class EstoqueService {
     // Atualizar saldo do lote
     const novoSaldo = lote.saldo_atual - quantidade;
     repoLote.atualizarSaldo(loteId, novoSaldo);
+
+    // Arquivar lote se saldo zerar
+    if (novoSaldo === 0) {
+      repoLote.atualizar(loteId, { arquivado: true });
+    }
 
     // Registrar perda
     const { v4: uuidv4 } = require('uuid');

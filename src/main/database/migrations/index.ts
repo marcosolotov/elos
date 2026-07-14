@@ -14,6 +14,10 @@ export async function runMigrations(db: Database.Database): Promise<void> {
   if (version < 3) {
     await migrationV3(db);
   }
+  
+  if (version < 4) {
+    await migrationV4(db);
+  }
 }
 
 async function migrationV2(db: Database.Database): Promise<void> {
@@ -53,6 +57,21 @@ async function migrationV3(db: Database.Database): Promise<void> {
   
   db.pragma('user_version = 3');
   console.log('Migration v3 completed');
+}
+
+async function migrationV4(db: Database.Database): Promise<void> {
+  // Adicionar coluna arquivado na tabela lote
+  const stmt = db.prepare("PRAGMA table_info(lote)");
+  const columns = stmt.all() as { name: string }[];
+  const hasArquivado = columns.some(col => col.name === 'arquivado');
+  
+  if (!hasArquivado) {
+    db.exec("ALTER TABLE lote ADD COLUMN arquivado INTEGER NOT NULL DEFAULT 0");
+    console.log('Migration v4: added arquivado column to lote');
+  }
+  
+  db.pragma('user_version = 4');
+  console.log('Migration v4 completed');
 }
 
 async function migrationV1(db: Database.Database): Promise<void> {
