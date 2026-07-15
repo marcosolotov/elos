@@ -41,8 +41,18 @@ declare global {
       gerarQRCode: (dados: any) => Promise<string>;
       consultarPorQRCode: (codigo: string) => Promise<any>;
       imprimirEtiqueta: (dados: any) => Promise<void>;
+      getLogs: (dataInicio?: string, dataFim?: string) => Promise<any[]>;
+      exportLogs: (dataInicio?: string, dataFim?: string) => Promise<string>;
+      clearLogs: (dataInicio?: string, dataFim?: string) => Promise<void>;
       backup: (caminho: string) => Promise<void>;
       restaurar: (caminho: string) => Promise<void>;
+      driveStatus: () => Promise<{ authenticated: boolean }>;
+      driveAuthenticate: () => Promise<boolean>;
+      driveDisconnect: () => Promise<void>;
+      driveUploadBackup: (description?: string) => Promise<{ id: string; name: string }>;
+      driveListBackups: () => Promise<Array<{ id: string; name: string; createdTime: string; size: string }>>;
+      driveDownloadBackup: (fileId: string) => Promise<void>;
+      driveDeleteBackup: (fileId: string) => Promise<void>;
     };
   }
 }

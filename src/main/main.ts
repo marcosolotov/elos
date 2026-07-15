@@ -1,10 +1,13 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
 import * as path from 'path';
+import * as fs from 'fs';
 import { DatabaseService } from './database/DatabaseService';
 import { EstoqueService } from './services/EstoqueService';
 import { LoteService } from './services/LoteService';
 import { RelatorioService } from './services/RelatorioService';
 import { PrintService } from './services/PrintService';
+import { LogService } from './services/LogService';
+import { GoogleDriveService } from './services/GoogleDriveService';
 
 // @ts-ignore
 let mainWindow: any = null;
@@ -13,6 +16,8 @@ let estoqueService: EstoqueService;
 let loteService: LoteService;
 let relatorioService: RelatorioService;
 let printService: PrintService;
+let logService: LogService;
+let googleDriveService: GoogleDriveService;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -50,10 +55,15 @@ function createWindow() {
 
 // @ts-ignore
 (app as any).whenReady().then(async () => {
+  // Initialize LogService FIRST to capture all logs from the start
+  logService = new LogService();
+  googleDriveService = new GoogleDriveService();
+  await googleDriveService.initialize();
+
   // Initialize database
   databaseService = new DatabaseService();
   await databaseService.initialize();
-  
+
   // Initialize services
   estoqueService = new EstoqueService(databaseService);
   loteService = new LoteService(databaseService);
@@ -264,6 +274,66 @@ function setupIpcHandlers() {
   // @ts-ignore
   ipcMain.handle('print:imprimirEtiqueta', async (_: any, dados: any): Promise<void> => {
     return printService.imprimirEtiqueta(dados);
+  });
+
+  // Log handlers
+  // @ts-ignore
+  ipcMain.handle('log:getLogs', async (_: any, dataInicio?: string, dataFim?: string): Promise<any[]> => {
+    return logService.getLogs(dataInicio, dataFim);
+  });
+
+  // @ts-ignore
+  ipcMain.handle('log:exportLogs', async (_: any, dataInicio?: string, dataFim?: string): Promise<string> => {
+    return logService.exportLogs(dataInicio, dataFim);
+  });
+
+  // @ts-ignore
+  ipcMain.handle('log:clearLogs', async (_: any, dataInicio?: string, dataFim?: string): Promise<void> => {
+    return logService.clearLogs(dataInicio, dataFim);
+  });
+
+  // Google Drive handlers
+  // @ts-ignore
+  ipcMain.handle('drive:status', async (): Promise<{ authenticated: boolean }> => {
+    return { authenticated: googleDriveService.isAuthenticated() };
+  });
+
+  // @ts-ignore
+  ipcMain.handle('drive:authenticate', async (): Promise<boolean> => {
+    return googleDriveService.authenticate(mainWindow);
+  });
+
+  // @ts-ignore
+  ipcMain.handle('drive:disconnect', async (): Promise<void> => {
+    return googleDriveService.disconnect();
+  });
+
+  // @ts-ignore
+  ipcMain.handle('drive:uploadBackup', async (_: any, description?: string): Promise<any> => {
+    const userDataPath = app.getPath('userData');
+    const dbPath = path.join(userDataPath, 'elos.db');
+    return googleDriveService.uploadBackup(dbPath, description);
+  });
+
+  // @ts-ignore
+  ipcMain.handle('drive:listBackups', async (): Promise<any[]> => {
+    return googleDriveService.listBackups();
+  });
+
+  // @ts-ignore
+  ipcMain.handle('drive:downloadBackup', async (_: any, fileId: string): Promise<void> => {
+    const userDataPath = app.getPath('userData');
+    const destPath = path.join(userDataPath, 'restored-backup.db');
+    await googleDriveService.downloadBackup(fileId, destPath);
+    // Restaurar o banco de dados com o arquivo baixado
+    await databaseService.restaurar(destPath);
+    // Limpar arquivo temporário
+    try { fs.unlinkSync(destPath); } catch {}
+  });
+
+  // @ts-ignore
+  ipcMain.handle('drive:deleteBackup', async (_: any, fileId: string): Promise<void> => {
+    return googleDriveService.deleteBackup(fileId);
   });
 
   // Database handlers

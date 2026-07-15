@@ -92,11 +92,35 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // @ts-ignore
   imprimirEtiqueta: (dados: any) => (ipcRenderer as any).invoke('print:imprimirEtiqueta', dados),
 
+  // Log operations
+  // @ts-ignore
+  getLogs: (dataInicio?: string, dataFim?: string) => (ipcRenderer as any).invoke('log:getLogs', dataInicio, dataFim),
+  // @ts-ignore
+  exportLogs: (dataInicio?: string, dataFim?: string) => (ipcRenderer as any).invoke('log:exportLogs', dataInicio, dataFim),
+  // @ts-ignore
+  clearLogs: (dataInicio?: string, dataFim?: string) => (ipcRenderer as any).invoke('log:clearLogs', dataInicio, dataFim),
+
   // Database operations
   // @ts-ignore
   backup: (caminho: string) => (ipcRenderer as any).invoke('db:backup', caminho),
   // @ts-ignore
   restaurar: (caminho: string) => (ipcRenderer as any).invoke('db:restaurar', caminho),
+
+  // Google Drive operations
+  // @ts-ignore
+  driveStatus: () => (ipcRenderer as any).invoke('drive:status'),
+  // @ts-ignore
+  driveAuthenticate: () => (ipcRenderer as any).invoke('drive:authenticate'),
+  // @ts-ignore
+  driveDisconnect: () => (ipcRenderer as any).invoke('drive:disconnect'),
+  // @ts-ignore
+  driveUploadBackup: (description?: string) => (ipcRenderer as any).invoke('drive:uploadBackup', description),
+  // @ts-ignore
+  driveListBackups: () => (ipcRenderer as any).invoke('drive:listBackups'),
+  // @ts-ignore
+  driveDownloadBackup: (fileId: string) => (ipcRenderer as any).invoke('drive:downloadBackup', fileId),
+  // @ts-ignore
+  driveDeleteBackup: (fileId: string) => (ipcRenderer as any).invoke('drive:deleteBackup', fileId),
 });
 
 // Type declaration for the exposed API
@@ -138,8 +162,18 @@ declare global {
       gerarQRCode: (dados: any) => Promise<string>;
       consultarPorQRCode: (codigo: string) => Promise<any>;
       imprimirEtiqueta: (dados: any) => Promise<void>;
+      getLogs: (dataInicio?: string, dataFim?: string) => Promise<any[]>;
+      exportLogs: (dataInicio?: string, dataFim?: string) => Promise<string>;
+      clearLogs: (dataInicio?: string, dataFim?: string) => Promise<void>;
       backup: (caminho: string) => Promise<void>;
       restaurar: (caminho: string) => Promise<void>;
+      driveStatus: () => Promise<{ authenticated: boolean }>;
+      driveAuthenticate: () => Promise<boolean>;
+      driveDisconnect: () => Promise<void>;
+      driveUploadBackup: (description?: string) => Promise<{ id: string; name: string }>;
+      driveListBackups: () => Promise<Array<{ id: string; name: string; createdTime: string; size: string }>>;
+      driveDownloadBackup: (fileId: string) => Promise<void>;
+      driveDeleteBackup: (fileId: string) => Promise<void>;
     };
   }
 }

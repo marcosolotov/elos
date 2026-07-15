@@ -8,3 +8,26 @@
   margin-bottom: 24px;
   color: #1a3a5c;
 }
+
+.configuracoes-page .logs-filters {
+  margin-bottom: 16px;
+  padding: 16px;
+  background: #fafafa;
+  border-radius: 8px;
+  border: 1px solid #f0f0f0;
+}
+
+.configuracoes-page .logs-table {
+  margin-top: 8px;
+}
+
+.configuracoes-page .ant-table-wrapper {
+  background: #fff;
+  border-radius: 8px;
+}
+
+.configuracoes-page .log-export-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
